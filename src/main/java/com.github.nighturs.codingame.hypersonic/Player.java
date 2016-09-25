@@ -348,7 +348,7 @@ class Player {
         }
 
         private static double calcScore(int time, int boxes, int itemsPickedUp) {
-            return 1.0 * (itemsPickedUp + boxes) / time;
+            return (10.0 * boxes + itemsPickedUp) / time;
         }
 
         @Override
