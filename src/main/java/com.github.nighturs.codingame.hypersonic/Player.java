@@ -25,6 +25,8 @@ class Player {
                         gameObjects.add(new Box(Position.of(i, h), Box.Type.BOMB_ITEM));
                     } else if (row.charAt(h) == '2') {
                         gameObjects.add(new Box(Position.of(i, h), Box.Type.RANGE_ITEM));
+                    } else if (row.charAt(h) == 'X') {
+                        gameObjects.add(new Wall(Position.of(i, h)));
                     }
                 }
             }
