@@ -86,7 +86,7 @@ public class PlayerTest {
          */
         gameObjects = Arrays.asList(new Wall(of(0, 1)), new Wall(of(0, 3)), new Wall(of(2, 2)), new Box(of(0, 2)));
         gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 2)), FarmBoxesStrategy.createStrategy(gameState).action());
+        assertEquals(new MoveAction(of(1, 2), "BOMB{1,2}"), FarmBoxesStrategy.createStrategy(gameState).action());
 
         /*
         .WCW.
@@ -121,7 +121,7 @@ public class PlayerTest {
                         new Box(of(1, 2)),
                         new Bomb(0, 1, 2, of(0, 0), 1));
         gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 1)), FarmBoxesStrategy.createStrategy(gameState).action());
+        assertEquals(new MoveAction(of(1, 1), "BOMB{1,1}"), FarmBoxesStrategy.createStrategy(gameState).action());
 
          /*
         .BCW.
@@ -140,6 +140,6 @@ public class PlayerTest {
                         new Box(of(1, 2)),
                         new Bomb(0, 1, 2, of(0, 1), 1));
         gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 0)), FarmBoxesStrategy.createStrategy(gameState).action());
+        assertEquals(new MoveAction(of(1, 0), "BOMB{1,1}"), FarmBoxesStrategy.createStrategy(gameState).action());
     }
 }
