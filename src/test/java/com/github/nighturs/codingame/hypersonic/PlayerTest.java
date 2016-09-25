@@ -153,6 +153,19 @@ public class PlayerTest {
                         new Bomb(0, 1, 2, of(0, 1), 1));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 0), "BOMB{1,1}"), planTurn(gameState));
+
+        /*
+        ..CW.
+        IP.W.
+        .....
+         */
+        gameObjects = Arrays.asList(new Wall(of(0, 3)),
+                new Wall(of(1, 3)),
+                new Box(of(0, 2)),
+                new Item(Item.Type.BOMB, of(1, 0)));
+        gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 3, 8, 1, 1), emptyList(), gameObjects);
+        assertEquals(new MoveAction(of(1, 0), "BOMB{0,0}"), planTurn(gameState));
+
     }
 
     @Test

@@ -146,7 +146,7 @@ class Player {
 
         private static MoveAction findMoveToSurvive(GameState gameState, Position myPosition, int time, Board board) {
             Queue<FarmBoxesStrategy.SearchPosition> queue = new ArrayDeque<>();
-            queue.add(new FarmBoxesStrategy.SearchPosition(null, myPosition, time));
+            queue.add(new FarmBoxesStrategy.SearchPosition(null, myPosition, time, 0));
 
             Map<Position, Set<Integer>> positionVisitTimes = new HashMap<>();
             positionVisitTimes.put(myPosition, new HashSet<>());
@@ -186,7 +186,7 @@ class Player {
                                 Action initiateAction = sp.getInitiateAction() == null ?
                                         new MoveAction(newPos) :
                                         sp.getInitiateAction();
-                                queue.add(new FarmBoxesStrategy.SearchPosition(initiateAction, newPos, nextTime));
+                                queue.add(new FarmBoxesStrategy.SearchPosition(initiateAction, newPos, nextTime, 0));
                             }
                         }
                     }
@@ -232,8 +232,15 @@ class Player {
         private static Action searchForBestBomb(GameState gameState, Position myPosition, int time, Board board) {
             int myBombermanId = gameState.getMyBomberman().getId();
 
-            Queue<SearchPosition> queue = new ArrayDeque<>();
-            queue.add(new SearchPosition(null, myPosition, time));
+            Queue<SearchPosition> queue = new PriorityQueue<>((SearchPosition a, SearchPosition b) -> {
+                int timeCmp = Integer.compare(a.getTime(), b.getTime());
+                if (timeCmp == 0) {
+                    return Integer.compare(b.getPickedUpItems(), a.getPickedUpItems());
+                } else {
+                    return timeCmp;
+                }
+            });
+            queue.add(new SearchPosition(null, myPosition, time, 0));
 
             double bestScore = Double.MIN_VALUE;
             Action bestScoreAction = null;
@@ -249,6 +256,7 @@ class Player {
                 int nextTime = nowTime + 1;
                 int leftBombs = gameState.getMyBomberman().getOverallBombs() -
                         board.bombermanBombsUsed(myBombermanId, nextTime);
+                int itemsPickedUp = sp.getPickedUpItems();
 
                 if (leftBombs > 0 && board.isCellVacantForBomb(Position.of(nowX, nowY), nextTime)) {
                     int explosionTime = nextTime + gameState.getMyBomberman().getBombCountdown();
@@ -289,7 +297,7 @@ class Player {
                                             sp.getPos(),
                                             myBombermanId))));
                     if (moveToSurvive != null) {
-                        double curScore = calcScore(explosionTime, boxesBlown);
+                        double curScore = calcScore(explosionTime, boxesBlown, itemsPickedUp);
                         if (bestScore < curScore) {
                             bestScore = curScore;
                             if (sp.getInitiateAction() != null) {
@@ -323,7 +331,11 @@ class Player {
                                 Action initiateAction = sp.getInitiateAction() == null ?
                                         new MoveAction(newPos) :
                                         sp.getInitiateAction();
-                                queue.add(new SearchPosition(initiateAction, newPos, nextTime));
+                                int newItemsPickedUp = itemsPickedUp;
+                                if (board.isCellHasItem(newPos, nextTime)) {
+                                    newItemsPickedUp++;
+                                }
+                                queue.add(new SearchPosition(initiateAction, newPos, nextTime, newItemsPickedUp));
                             }
                         }
                     }
@@ -333,12 +345,8 @@ class Player {
             return bestScoreAction;
         }
 
-        private static double calcScore(int time, int boxes) {
-            if (boxes > 0) {
-                return 1.0 / time;
-            } else {
-                return 0;
-            }
+        private static double calcScore(int time, int boxes, int itemsPickedUp) {
+            return 1.0 * (itemsPickedUp + boxes) / time;
         }
 
         @Override
@@ -356,11 +364,13 @@ class Player {
             private final Action initiateAction;
             private final Position pos;
             private final int time;
+            private final int pickedUpItems;
 
-            public SearchPosition(Action initiateAction, Position pos, int time) {
+            public SearchPosition(Action initiateAction, Position pos, int time, int pickedUpItems) {
                 this.initiateAction = initiateAction;
                 this.pos = pos;
                 this.time = time;
+                this.pickedUpItems = pickedUpItems;
             }
 
             public Action getInitiateAction() {
@@ -373,6 +383,10 @@ class Player {
 
             public int getTime() {
                 return time;
+            }
+
+            public int getPickedUpItems() {
+                return pickedUpItems;
             }
         }
     }
