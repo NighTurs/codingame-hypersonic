@@ -29,7 +29,7 @@ public class PlayerTest {
         Board board = Board.createBoard(11,
                 11,
                 Arrays.asList(new Box(of(1, 4)),
-                        new Box(of(4, 3)),
+                        new Box(of(4, 3), Box.Type.BOMB_ITEM),
                         new Box(of(5, 3)),
                         new Box(of(10, 3)),
                         new Box(of(7, 9)),
@@ -79,6 +79,9 @@ public class PlayerTest {
         assertTrue(board.isCellHasItem(of(1, 6), 2));
         assertFalse(board.isCellHasItem(of(1, 6), 9));
         assertFalse(board.isCellHasItem(of(1, 6), 10));
+        assertFalse(board.isCellHasItem(of(4, 3), 1));
+        assertTrue(board.isCellHasItem(of(4, 3), 2));
+        assertTrue(board.isCellHasItem(of(4, 3), 3));
     }
 
     @Test

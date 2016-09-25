@@ -499,6 +499,7 @@ class Player {
         final boolean[][] hasWall;
         final int[][] hasBoxUntil;
         final int[][] hasBombUntil;
+        final int[][] hasItemSince;
         final int[][] hasItemUntil;
         final Map<Position, List<Integer>> explosions;
         final int[] bombsByBomberman;
@@ -527,6 +528,7 @@ class Player {
             this.gameObjects = gameObjects;
             this.hasBoxUntil = fill(new int[n][m], -1);
             this.hasBombUntil = fill(new int[n][m], -1);
+            this.hasItemSince = fill(new int[n][m], INF);
             this.hasItemUntil = fill(new int[n][m], -1);
             this.bombsByBomberman = new int[MAX_BOMBERMAN];
             this.explosionTimesByBomberman = new ArrayList<>();
@@ -544,21 +546,30 @@ class Player {
             return mat;
         }
 
+        private static void arrayCopy(int[][] aSource, int[][] aDestination) {
+            for (int i = 0; i < aSource.length; i++) {
+                System.arraycopy(aSource[i], 0, aDestination[i], 0, aSource[i].length);
+            }
+        }
+
         private void calcFuture() {
             final int isEmpty = 0;
             final int isWall = 1;
             final int isBox = 2;
             final int isBomb = 3;
             final int isItem = 4;
+            final int isBoxWithItem = 5;
             int[][] curTurnBoard = new int[n][m];
-            int[][] nextTurnBoard;
+            int[][] nextTurnBoard = new int[n][m];
             List<Bomb> bombs = new ArrayList<>();
             Map<Position, List<Bomb>> bombsByPosition = new HashMap<>();
             for (GameObject o : gameObjects) {
                 if (o instanceof Wall) {
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isWall;
                 } else if (o instanceof Box) {
-                    curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isBox;
+                    Box box = (Box) o;
+                    curTurnBoard[o.getPos().getX()][o.getPos().getY()] =
+                            box.getType() == Box.Type.EMPTY ? isBox : isBoxWithItem;
                     hasBoxUntil[o.getPos().getX()][o.getPos().getY()] = INF;
                 } else if (o instanceof Bomb) {
                     Bomb bomb = (Bomb) o;
@@ -570,9 +581,10 @@ class Player {
                 } else if (o instanceof Item) {
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isItem;
                     hasItemUntil[o.getPos().getX()][o.getPos().getY()] = INF;
+                    hasItemSince[o.getPos().getX()][o.getPos().getY()] = -1;
                 }
             }
-            nextTurnBoard = curTurnBoard.clone();
+            arrayCopy(curTurnBoard, nextTurnBoard);
             Set<Bomb> isDetonated = new HashSet<>();
             while (isDetonated.size() < bombs.size()) {
                 int minDetonateTime = Integer.MAX_VALUE;
@@ -622,6 +634,14 @@ class Player {
                                         }
                                     }
 
+                                    if (curTurnBoard[newX][newY] == isBoxWithItem) {
+                                        nextTurnBoard[newX][newY] = isItem;
+                                        hasBoxUntil[newX][newY] = minDetonateTime - 1;
+                                        hasItemSince[newX][newY] = minDetonateTime;
+                                        hasItemUntil[newX][newY] = INF;
+                                        struckObstruction = true;
+                                    }
+
                                     if (curTurnBoard[newX][newY] == isBox) {
                                         nextTurnBoard[newX][newY] = isEmpty;
                                         hasBoxUntil[newX][newY] = minDetonateTime - 1;
@@ -652,7 +672,7 @@ class Player {
                     explosions.putIfAbsent(pos, new ArrayList<>());
                     explosions.get(pos).add(minDetonateTime);
                 }
-                curTurnBoard = nextTurnBoard.clone();
+                arrayCopy(nextTurnBoard, curTurnBoard);
             }
         }
 
@@ -674,7 +694,7 @@ class Player {
         }
 
         public boolean isCellHasItem(Position pos, int time) {
-            return hasItemUntil[pos.getX()][pos.getY()] >= time;
+            return hasItemSince[pos.getX()][pos.getY()] <= time && hasItemUntil[pos.getX()][pos.getY()] >= time;
         }
 
         public int nextExplosionInCell(Position pos, int time) {
