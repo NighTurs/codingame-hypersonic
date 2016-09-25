@@ -100,7 +100,7 @@ class Player {
     static class FarmBoxesStrategy implements Strategy {
 
         private static final int TURNS_TO_REACH_SAFETY = 10;
-        private static final int MAX_POSITION_VISIT_TIMES = 10;
+        private static final int MAX_POSITION_VISIT_TIMES = 5;
         private final Action action;
 
         public static FarmBoxesStrategy createStrategy(GameState gameState) {
