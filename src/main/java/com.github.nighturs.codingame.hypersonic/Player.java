@@ -190,7 +190,7 @@ public class Player {
         public boolean isCellVacantForBomb(Position pos, int time) {
             int x = pos.getX();
             int y = pos.getY();
-            return !(hasWall[x][y] || hasBombUntil[x][y] < time || hasBoxUntil[x][y] < time);
+            return !(hasWall[x][y] || hasBombUntil[x][y] >= time || hasBoxUntil[x][y] >= time);
         }
 
         public boolean isCellBox(Position pos, int time) {
