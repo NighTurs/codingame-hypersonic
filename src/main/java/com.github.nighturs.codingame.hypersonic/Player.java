@@ -65,7 +65,11 @@ class Player {
         private final List<Bomberman> enemyBomberman;
         private final Board board;
 
-        public GameState(int n, int m, Bomberman myBomberman, List<Bomberman> enemyBomberman, List<GameObject> gameObjects) {
+        public GameState(int n,
+                         int m,
+                         Bomberman myBomberman,
+                         List<Bomberman> enemyBomberman,
+                         List<GameObject> gameObjects) {
             this.n = n;
             this.m = m;
             this.myBomberman = myBomberman;
@@ -175,7 +179,9 @@ class Player {
                         if (bestScore < curScore) {
                             bestScore = curScore;
                             if (sp.getInitiateAction() != null) {
-                                bestScoreAction = sp.getInitiateAction();
+                                MoveAction action = (MoveAction) sp.getInitiateAction();
+                                bestScoreAction = new MoveAction(action.getPos(),
+                                        String.format("BOMB{%d,%d}", sp.getPos().getX(), sp.getPos().getY()));
                             } else {
                                 bestScoreAction = new PlaceBombAction(moveToSurvive.getPos());
                             }
@@ -361,7 +367,7 @@ class Player {
 
         @Override
         public String formatLine() {
-            return String.format("MOVE %d %d %s", pos.getX(), pos.getY(), text);
+            return String.format("MOVE %d %d %s", pos.getY(), pos.getX(), text);
         }
 
         @Override
@@ -411,7 +417,7 @@ class Player {
 
         @Override
         public String formatLine() {
-            return String.format("BOMB %d %d %s", pos.getX(), pos.getY(), text);
+            return String.format("BOMB %d %d %s", pos.getY(), pos.getX(), text);
         }
 
         @Override
