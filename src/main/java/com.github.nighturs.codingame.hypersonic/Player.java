@@ -2,7 +2,7 @@ package com.github.nighturs.codingame.hypersonic;
 
 import java.util.*;
 
-public class Player {
+class Player {
 
     static int MAXX = 11;
     static int MAXY = 13;
@@ -15,10 +15,18 @@ public class Player {
         in.nextLine();
 
         while (true) {
+            List<GameObject> gameObjects = new ArrayList<>();
             for (int i = 0; i < height; i++) {
                 String row = in.nextLine();
+                for (int h = 0; h < width; h++) {
+                    if (row.charAt(h) == '0') {
+                        gameObjects.add(new Box(Position.of(i, h)));
+                    }
+                }
             }
             int entities = in.nextInt();
+            Bomberman myBomberman = null;
+            List<Bomberman> enemyBomberman = new ArrayList<>();
             for (int i = 0; i < entities; i++) {
                 int entityType = in.nextInt();
                 int owner = in.nextInt();
@@ -26,10 +34,26 @@ public class Player {
                 int y = in.nextInt();
                 int param1 = in.nextInt();
                 int param2 = in.nextInt();
+                switch (entityType) {
+                    case 0:
+                        Bomberman b = new Bomberman(owner, Position.of(y, x), 3, 8, param1, 1);
+                        if (owner == myId) {
+                            myBomberman = b;
+                        } else {
+                            enemyBomberman.add(b);
+                        }
+                        break;
+                    case 1:
+                        gameObjects.add(new Bomb(0, param1, 3, Position.of(y, x), owner));
+                        break;
+                }
             }
             in.nextLine();
+            System.err.println(gameObjects);
 
-            System.out.println("BOMB 6 5");
+            GameState gs = new GameState(height, width, myBomberman, enemyBomberman, gameObjects);
+
+            System.out.println(FarmBoxesStrategy.createStrategy(gs).action().formatLine());
         }
     }
 
@@ -41,12 +65,12 @@ public class Player {
         private final List<Bomberman> enemyBomberman;
         private final Board board;
 
-        public GameState(int n, int m, Bomberman myBomberman, List<Bomberman> enemyBomberman, Board board) {
+        public GameState(int n, int m, Bomberman myBomberman, List<Bomberman> enemyBomberman, List<GameObject> gameObjects) {
             this.n = n;
             this.m = m;
             this.myBomberman = myBomberman;
             this.enemyBomberman = enemyBomberman;
-            this.board = board;
+            this.board = Board.createBoard(n, m, gameObjects);
         }
 
         public int getN() {

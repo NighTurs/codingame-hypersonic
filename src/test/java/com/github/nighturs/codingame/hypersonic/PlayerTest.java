@@ -4,6 +4,7 @@ import com.github.nighturs.codingame.hypersonic.Player.*;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static com.github.nighturs.codingame.hypersonic.Player.Position.of;
 import static java.util.Collections.emptyList;
@@ -75,17 +76,16 @@ public class PlayerTest {
     public void testFarmBoxesStrategy() {
         int n = 3;
         int m = 5;
-        Board board;
+
+        List<GameObject> gameObjects;
         GameState gameState;
         /*
         .WCW.
         .P...
         ..W..
          */
-        board = Board.createBoard(n,
-                m,
-                Arrays.asList(new Wall(of(0, 1)), new Wall(of(0, 3)), new Wall(of(2, 2)), new Box(of(0, 2))));
-        gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), board);
+        gameObjects = Arrays.asList(new Wall(of(0, 1)), new Wall(of(0, 3)), new Wall(of(2, 2)), new Box(of(0, 2)));
+        gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 2)), FarmBoxesStrategy.createStrategy(gameState).action());
 
         /*
@@ -93,16 +93,15 @@ public class PlayerTest {
         ..PW.
         .WWW.
          */
-        board = Board.createBoard(n,
-                m,
+        gameObjects =
                 Arrays.asList(new Wall(of(0, 1)),
                         new Wall(of(0, 3)),
                         new Wall(of(2, 2)),
                         new Wall(of(1, 3)),
                         new Wall(of(2, 1)),
                         new Wall(of(2, 3)),
-                        new Box(of(0, 2))));
-        gameState = new GameState(3, 5, new Bomberman(1, of(1, 2), 2, 8, 1, 1), emptyList(), board);
+                        new Box(of(0, 2)));
+        gameState = new GameState(3, 5, new Bomberman(1, of(1, 2), 2, 8, 1, 1), emptyList(), gameObjects);
         assertEquals(new PlaceBombAction(of(1, 1)), FarmBoxesStrategy.createStrategy(gameState).action());
 
         /*
@@ -110,8 +109,7 @@ public class PlayerTest {
         .PCW.
         WWWW.
          */
-        board = Board.createBoard(n,
-                m,
+        gameObjects =
                 Arrays.asList(new Wall(of(0, 3)),
                         new Wall(of(1, 3)),
                         new Wall(of(2, 3)),
@@ -121,8 +119,8 @@ public class PlayerTest {
                         new Wall(of(2, 2)),
                         new Box(of(0, 2)),
                         new Box(of(1, 2)),
-                        new Bomb(0, 1, 2, of(0, 0), 1)));
-        gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), board);
+                        new Bomb(0, 1, 2, of(0, 0), 1));
+        gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 1)), FarmBoxesStrategy.createStrategy(gameState).action());
 
          /*
@@ -130,8 +128,7 @@ public class PlayerTest {
         .PCW.
         WWWW.
          */
-        board = Board.createBoard(n,
-                m,
+        gameObjects =
                 Arrays.asList(new Wall(of(0, 3)),
                         new Wall(of(1, 3)),
                         new Wall(of(2, 3)),
@@ -141,8 +138,8 @@ public class PlayerTest {
                         new Wall(of(2, 2)),
                         new Box(of(0, 2)),
                         new Box(of(1, 2)),
-                        new Bomb(0, 1, 2, of(0, 1), 1)));
-        gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), board);
+                        new Bomb(0, 1, 2, of(0, 1), 1));
+        gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 0)), FarmBoxesStrategy.createStrategy(gameState).action());
     }
 }
