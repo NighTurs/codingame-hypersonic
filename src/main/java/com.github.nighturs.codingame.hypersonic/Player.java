@@ -49,7 +49,6 @@ class Player {
                 }
             }
             in.nextLine();
-            System.err.println(gameObjects);
 
             GameState gs = new GameState(height, width, myBomberman, enemyBomberman, gameObjects);
 
@@ -616,7 +615,7 @@ class Player {
             int usedOverall = bombsByBomberman[bombermanId];
             for (int i = 0; i < explosionTimesByBomberman.get(bombermanId).size(); i++) {
                 int explosionTime = explosionTimesByBomberman.get(bombermanId).get(i);
-                if (explosionTime <= time) {
+                if (explosionTime < time) {
                     usedOverall--;
                 }
             }
