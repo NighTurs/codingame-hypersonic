@@ -20,13 +20,17 @@ class Player {
                 String row = in.nextLine();
                 for (int h = 0; h < width; h++) {
                     if (row.charAt(h) == '0') {
-                        gameObjects.add(new Box(Position.of(i, h)));
+                        gameObjects.add(new Box(Position.of(i, h), Box.Type.EMPTY));
+                    } else if (row.charAt(h) == '1') {
+                        gameObjects.add(new Box(Position.of(i, h), Box.Type.BOMB_ITEM));
+                    } else if (row.charAt(h) == '2') {
+                        gameObjects.add(new Box(Position.of(i, h), Box.Type.RANGE_ITEM));
                     }
                 }
             }
             int entities = in.nextInt();
-            Bomberman myBomberman = null;
-            List<Bomberman> enemyBomberman = new ArrayList<>();
+            List<Bomberman> incompleteBombermans = new ArrayList<>();
+            Map<Integer, Integer> bombsByBomberman = new HashMap<>();
             for (int i = 0; i < entities; i++) {
                 int entityType = in.nextInt();
                 int owner = in.nextInt();
@@ -36,18 +40,36 @@ class Player {
                 int param2 = in.nextInt();
                 switch (entityType) {
                     case 0:
-                        Bomberman b = new Bomberman(owner, Position.of(y, x), 3, 8, param1, 1);
-                        if (owner == myId) {
-                            myBomberman = b;
-                        } else {
-                            enemyBomberman.add(b);
-                        }
+                        incompleteBombermans.add(new Bomberman(owner, Position.of(y, x), param2, 8, param1, 0));
                         break;
                     case 1:
-                        gameObjects.add(new Bomb(0, param1, 3, Position.of(y, x), owner));
+                        gameObjects.add(new Bomb(0, param1, param2, Position.of(y, x), owner));
+                        bombsByBomberman.putIfAbsent(owner, 0);
+                        bombsByBomberman.put(owner, bombsByBomberman.get(owner) + 1);
                         break;
+                    case 2:
+                        gameObjects.add(new Item(param1 == 1 ? Item.Type.BOMB : Item.Type.RANGE, Position.of(y, x)));
+                        break;
+
                 }
             }
+            Bomberman myBomberman = null;
+            List<Bomberman> enemyBomberman = new ArrayList<>();
+            for (Bomberman b : incompleteBombermans) {
+                bombsByBomberman.putIfAbsent(b.getId(), 0);
+                Bomberman completeBomberman = new Bomberman(b.getId(),
+                        b.getPos(),
+                        b.getBombRange(),
+                        b.getBombCountdown(),
+                        b.getLeftBombs(),
+                        b.getLeftBombs() + bombsByBomberman.get(b.getId()));
+                if (completeBomberman.getId() == myId) {
+                    myBomberman = completeBomberman;
+                } else {
+                    enemyBomberman.add(completeBomberman);
+                }
+            }
+
             in.nextLine();
 
             GameState gs = new GameState(height, width, myBomberman, enemyBomberman, gameObjects);
@@ -477,6 +499,7 @@ class Player {
         final boolean[][] hasWall;
         final int[][] hasBoxUntil;
         final int[][] hasBombUntil;
+        final int[][] hasItemUntil;
         final Map<Position, List<Integer>> explosions;
         final int[] bombsByBomberman;
         final List<List<Integer>> explosionTimesByBomberman;
@@ -504,6 +527,7 @@ class Player {
             this.gameObjects = gameObjects;
             this.hasBoxUntil = fill(new int[n][m], -1);
             this.hasBombUntil = fill(new int[n][m], -1);
+            this.hasItemUntil = fill(new int[n][m], -1);
             this.bombsByBomberman = new int[MAX_BOMBERMAN];
             this.explosionTimesByBomberman = new ArrayList<>();
             for (int i = 0; i < MAX_BOMBERMAN; i++) {
@@ -525,6 +549,7 @@ class Player {
             final int isWall = 1;
             final int isBox = 2;
             final int isBomb = 3;
+            final int isItem = 4;
             int[][] curTurnBoard = new int[n][m];
             int[][] nextTurnBoard;
             List<Bomb> bombs = new ArrayList<>();
@@ -542,6 +567,9 @@ class Player {
                     bombsByPosition.get(o.getPos()).add(bomb);
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isBomb;
                     bombsByBomberman[bomb.getOwnerId()]++;
+                } else if (o instanceof Item) {
+                    curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isItem;
+                    hasItemUntil[o.getPos().getX()][o.getPos().getY()] = INF;
                 }
             }
             nextTurnBoard = curTurnBoard.clone();
@@ -600,6 +628,12 @@ class Player {
                                         struckObstruction = true;
                                     }
 
+                                    if (curTurnBoard[newX][newY] == isItem) {
+                                        nextTurnBoard[newX][newY] = isEmpty;
+                                        hasItemUntil[newX][newY] = minDetonateTime - 1;
+                                        struckObstruction = true;
+                                    }
+
                                     if (curTurnBoard[newX][newY] == isWall) {
                                         struckObstruction = true;
                                     }
@@ -637,6 +671,10 @@ class Player {
 
         public boolean isCellBox(Position pos, int time) {
             return hasBoxUntil[pos.getX()][pos.getY()] >= time;
+        }
+
+        public boolean isCellHasItem(Position pos, int time) {
+            return hasItemUntil[pos.getX()][pos.getY()] >= time;
         }
 
         public int nextExplosionInCell(Position pos, int time) {
@@ -686,18 +724,34 @@ class Player {
     static final class Box implements GameObject {
 
         private final Position pos;
+        private final Type type;
 
         public Box(Position pos) {
+            this(pos, Type.EMPTY);
+        }
+
+        public Box(Position pos, Type type) {
             this.pos = pos;
+            this.type = type;
         }
 
         public Position getPos() {
             return pos;
         }
 
+        public Type getType() {
+            return type;
+        }
+
         @Override
         public String toString() {
             return "Box{" + "pos=" + pos + '}';
+        }
+
+        enum Type {
+            EMPTY,
+            RANGE_ITEM,
+            BOMB_ITEM
         }
     }
 
@@ -767,6 +821,30 @@ class Player {
             sb.append(", ownerId=").append(ownerId);
             sb.append('}');
             return sb.toString();
+        }
+    }
+
+    static final class Item implements GameObject {
+        private final Type type;
+        private final Position pos;
+
+        public Item(Type type, Position pos) {
+            this.type = type;
+            this.pos = pos;
+        }
+
+        public Type getType() {
+            return type;
+        }
+
+        @Override
+        public Position getPos() {
+            return pos;
+        }
+
+        enum Type {
+            RANGE,
+            BOMB
         }
     }
 

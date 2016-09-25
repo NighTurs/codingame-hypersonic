@@ -16,7 +16,7 @@ public class PlayerTest {
     @Test
     public void testBoard() throws Exception {
         /*
-        ...CB.....
+        ...CB.I...
         ..........
         ..B...B...
         ..C.......
@@ -38,6 +38,7 @@ public class PlayerTest {
                         new Bomb(3, 2, 5, of(7, 7), 1),
                         new Bomb(3, 3, 5, of(7, 3), 1),
                         new Bomb(5, 4, 10, of(1, 5), 2),
+                        new Item(Item.Type.RANGE, of(1, 6)),
                         new Wall(of(7, 8))));
         assertFalse(board.isCellPassable(of(7, 8), 1));
         assertFalse(board.isCellPassable(of(7, 8), 100));
@@ -63,7 +64,7 @@ public class PlayerTest {
 
         assertEquals(2, board.nextExplosionInCell(of(5, 3), 0));
         assertEquals(-1, board.nextExplosionInCell(of(5, 3), 2));
-        assertEquals(9, board.nextExplosionInCell(of(1, 9), 2));
+        assertEquals(9, board.nextExplosionInCell(of(1, 5), 2));
 
         assertEquals(4, board.bombermanBombsUsed(1, 0));
         assertEquals(4, board.bombermanBombsUsed(1, 1));
@@ -73,6 +74,11 @@ public class PlayerTest {
         assertEquals(1, board.bombermanBombsUsed(2, 2));
         assertEquals(1, board.bombermanBombsUsed(2, 9));
         assertEquals(0, board.bombermanBombsUsed(2, 10));
+
+        assertTrue(board.isCellPassable(of(1, 6), 2));
+        assertTrue(board.isCellHasItem(of(1, 6), 2));
+        assertFalse(board.isCellHasItem(of(1, 6), 9));
+        assertFalse(board.isCellHasItem(of(1, 6), 10));
     }
 
     @Test
