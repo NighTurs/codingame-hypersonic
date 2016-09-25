@@ -35,9 +35,27 @@ public class Player {
 
     static class GameState {
 
-        private Bomberman myBomberman;
-        private List<Bomberman> enemyBomberman;
-        private Board board;
+        private final int n;
+        private final int m;
+        private final Bomberman myBomberman;
+        private final List<Bomberman> enemyBomberman;
+        private final Board board;
+
+        public GameState(int n, int m, Bomberman myBomberman, List<Bomberman> enemyBomberman, Board board) {
+            this.n = n;
+            this.m = m;
+            this.myBomberman = myBomberman;
+            this.enemyBomberman = enemyBomberman;
+            this.board = board;
+        }
+
+        public int getN() {
+            return n;
+        }
+
+        public int getM() {
+            return m;
+        }
 
         public Bomberman getMyBomberman() {
             return myBomberman;
@@ -54,18 +72,215 @@ public class Player {
 
     static class FarmBoxesStrategy implements Strategy {
 
+        private static final int TURNS_TO_REACH_SAFETY = 10;
+        private static final int MAX_POSITION_VISIT_TIMES = 10;
+        private final Action action;
+
         public static FarmBoxesStrategy createStrategy(GameState gameState) {
-            throw new RuntimeException();
+            return new FarmBoxesStrategy(searchForBestBomb(gameState,
+                    gameState.getMyBomberman().getPos(),
+                    0,
+                    gameState.getBoard()));
+        }
+
+        private FarmBoxesStrategy(Action action) {
+            this.action = action;
+        }
+
+        private static Action searchForBestBomb(GameState gameState, Position myPosition, int time, Board board) {
+            int myBombermanId = gameState.getMyBomberman().getId();
+
+            Queue<SearchPosition> queue = new ArrayDeque<>();
+            queue.add(new SearchPosition(null, myPosition, time));
+
+            double bestScore = Double.MIN_VALUE;
+            Action bestScoreAction = null;
+            Map<Position, Set<Integer>> positionVisitTimes = new HashMap<>();
+            positionVisitTimes.put(myPosition, new HashSet<>());
+            positionVisitTimes.get(myPosition).add(time);
+
+            while (!queue.isEmpty()) {
+                SearchPosition sp = queue.poll();
+                int nowX = sp.getPos().getX();
+                int nowY = sp.getPos().getY();
+                int nowTime = sp.getTime();
+                int nextTime = nowTime + 1;
+                int leftBombs = gameState.getMyBomberman().getOverallBombs() -
+                        board.bombermanBombsUsed(myBombermanId, nextTime);
+
+                if (leftBombs > 0 && board.isCellVacantForBomb(Position.of(nowX, nowY), nextTime)) {
+                    int explosionTime = nextTime + gameState.getMyBomberman().getBombCountdown();
+                    int nextExplosion = board.nextExplosionInCell(sp.getPos(), nowTime);
+                    if (nextExplosion != -1) {
+                        explosionTime = Math.min(explosionTime, nextExplosion);
+                    }
+                    int boxesBlown = 0;
+
+                    for (int i = -1; i <= 1; i++) {
+                        for (int h = -1; h <= 1; h++) {
+                            if (i == 0 ^ h == 0) {
+                                for (int d = 0; d < gameState.getMyBomberman().getBombRange(); d++) {
+                                    int newX = nowX + i * d;
+                                    int newY = nowY + h * d;
+                                    if (!Position.isValid(gameState.getN(), gameState.getM(), newX, newY)) {
+                                        break;
+                                    }
+                                    Position newPos = Position.of(newX, newY);
+                                    if (board.isCellBox(newPos, explosionTime)) {
+                                        boxesBlown++;
+                                    }
+                                    if (!board.isCellPassable(newPos, explosionTime)) {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    MoveAction moveToSurvive = findMoveToSurvive(gameState,
+                            sp.getPos(),
+                            nowTime,
+                            Board.appendTimeline(board,
+                                    Collections.singletonList(new Bomb(nextTime,
+                                            gameState.getMyBomberman().getBombCountdown(),
+                                            gameState.getMyBomberman().getBombRange(),
+                                            sp.getPos(),
+                                            myBombermanId))));
+                    if (moveToSurvive != null) {
+                        double curScore = calcScore(explosionTime, boxesBlown);
+                        if (bestScore < curScore) {
+                            bestScore = curScore;
+                            if (sp.getInitiateAction() != null) {
+                                bestScoreAction = sp.getInitiateAction();
+                            } else {
+                                bestScoreAction = new PlaceBombAction(moveToSurvive.getPos());
+                            }
+                        }
+                    }
+                }
+
+                for (int j1 = -1; j1 <= 1; j1++) {
+                    for (int j2 = -1; j2 <= 1; j2++) {
+                        if (j1 == 0 || j2 == 0) {
+                            int newX = nowX + j1;
+                            int newY = nowY + j2;
+                            if (!Position.isValid(gameState.getN(), gameState.getM(), newX, newY)) {
+                                continue;
+                            }
+                            Position newPos = Position.of(newX, newY);
+                            if (positionVisitTimes.containsKey(newPos) &&
+                                    (positionVisitTimes.get(newPos).contains(nextTime) ||
+                                            positionVisitTimes.get(newPos).size() >= MAX_POSITION_VISIT_TIMES)) {
+                                continue;
+                            }
+                            if (board.isCellPassable(newPos, nextTime)) {
+                                positionVisitTimes.putIfAbsent(newPos, new HashSet<>());
+                                positionVisitTimes.get(newPos).add(nextTime);
+                                Action initiateAction = sp.getInitiateAction() == null ?
+                                        new MoveAction(newPos) :
+                                        sp.getInitiateAction();
+                                queue.add(new SearchPosition(initiateAction, newPos, nextTime));
+                            }
+                        }
+                    }
+                }
+            }
+
+            return bestScoreAction == null ? new MoveAction(myPosition) : bestScoreAction;
+        }
+
+        private static MoveAction findMoveToSurvive(GameState gameState, Position myPosition, int time, Board board) {
+            Queue<SearchPosition> queue = new ArrayDeque<>();
+            queue.add(new SearchPosition(null, myPosition, time));
+
+            Map<Position, Set<Integer>> positionVisitTimes = new HashMap<>();
+            positionVisitTimes.put(myPosition, new HashSet<>());
+            positionVisitTimes.get(myPosition).add(time);
+            MoveAction moveToSurvive = null;
+
+            while (!queue.isEmpty()) {
+                SearchPosition sp = queue.poll();
+                int nowX = sp.getPos().getX();
+                int nowY = sp.getPos().getY();
+                int nowTime = sp.getTime();
+                int nextTime = nowTime + 1;
+
+                if (sp.getTime() - time >= TURNS_TO_REACH_SAFETY) {
+                    moveToSurvive = (MoveAction) sp.getInitiateAction();
+                    break;
+                }
+
+                for (int j1 = -1; j1 <= 1; j1++) {
+                    for (int j2 = -1; j2 <= 1; j2++) {
+                        if (j1 == 0 || j2 == 0) {
+                            int newX = nowX + j1;
+                            int newY = nowY + j2;
+                            if (!Position.isValid(gameState.getN(), gameState.getM(), newX, newY)) {
+                                continue;
+                            }
+                            Position newPos = Position.of(newX, newY);
+                            if (positionVisitTimes.containsKey(newPos) &&
+                                    (positionVisitTimes.get(newPos).contains(nextTime) ||
+                                            positionVisitTimes.get(newPos).size() >= MAX_POSITION_VISIT_TIMES)) {
+                                continue;
+                            }
+
+                            if (board.isCellPassable(newPos, nextTime)) {
+                                positionVisitTimes.putIfAbsent(newPos, new HashSet<>());
+                                positionVisitTimes.get(newPos).add(nextTime);
+                                Action initiateAction = sp.getInitiateAction() == null ?
+                                        new MoveAction(newPos) :
+                                        sp.getInitiateAction();
+                                queue.add(new SearchPosition(initiateAction, newPos, nextTime));
+                            }
+                        }
+                    }
+                }
+            }
+            return moveToSurvive;
+        }
+
+        private static double calcScore(int time, int boxes) {
+            if (boxes > 0) {
+                return 1.0 / time;
+            } else {
+                return 0;
+            }
         }
 
         @Override
         public Action action() {
-            return null;
+            return action;
         }
 
         @Override
         public int priority() {
-            return 0;
+            return 1;
+        }
+
+        private static class SearchPosition {
+
+            private final Action initiateAction;
+            private final Position pos;
+            private final int time;
+
+            public SearchPosition(Action initiateAction, Position pos, int time) {
+                this.initiateAction = initiateAction;
+                this.pos = pos;
+                this.time = time;
+            }
+
+            public Action getInitiateAction() {
+                return initiateAction;
+            }
+
+            public Position getPos() {
+                return pos;
+            }
+
+            public int getTime() {
+                return time;
+            }
         }
     }
 
@@ -104,8 +319,30 @@ public class Player {
         }
 
         @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            MoveAction that = (MoveAction) o;
+            return Objects.equals(pos, that.pos) && Objects.equals(text, that.text);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(pos, text);
+        }
+
+        @Override
         public String formatLine() {
             return String.format("MOVE %d %d %s", pos.getX(), pos.getY(), text);
+        }
+
+        @Override
+        public String toString() {
+            return formatLine();
         }
     }
 
@@ -132,8 +369,30 @@ public class Player {
         }
 
         @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            PlaceBombAction that = (PlaceBombAction) o;
+            return Objects.equals(pos, that.pos) && Objects.equals(text, that.text);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(pos, text);
+        }
+
+        @Override
         public String formatLine() {
             return String.format("BOMB %d %d %s", pos.getX(), pos.getY(), text);
+        }
+
+        @Override
+        public String toString() {
+            return formatLine();
         }
     }
 
@@ -229,8 +488,7 @@ public class Player {
                 Bomb initiatorBomb = bombs.get(nextBombToDetonate);
                 isDetonated.add(initiatorBomb);
                 hasBombUntil[initiatorBomb.getPos().getX()][initiatorBomb.getPos().getY()] = minDetonateTime - 1;
-                explosionTimesByBomberman.get(initiatorBomb.getOwnerId())
-                        .add(minDetonateTime);
+                explosionTimesByBomberman.get(initiatorBomb.getOwnerId()).add(minDetonateTime);
                 Queue<Bomb> toDetonateBombs = new ArrayDeque<>();
                 toDetonateBombs.add(initiatorBomb);
                 Set<Position> exploadedCells = new HashSet<>();
@@ -245,7 +503,7 @@ public class Player {
                                 for (int d = 0; d < range; d++) {
                                     int newX = x + i * d;
                                     int newY = y + h * d;
-                                    if (newX < 0 || newX >= n || newY < 0 || newY >= m) {
+                                    if (!Position.isValid(n, m, newX, newY)) {
                                         break;
                                     }
                                     Position newPos = Position.of(newX, newY);
@@ -258,8 +516,7 @@ public class Player {
                                                 toDetonateBombs.add(bomb);
                                                 hasBombUntil[bomb.getPos().getX()][bomb.getPos().getY()] =
                                                         minDetonateTime - 1;
-                                                explosionTimesByBomberman.get(bomb.getOwnerId())
-                                                        .add(minDetonateTime);
+                                                explosionTimesByBomberman.get(bomb.getOwnerId()).add(minDetonateTime);
                                                 struckObstruction = true;
                                                 nextTurnBoard[newX][newY] = isEmpty;
                                             }
@@ -444,16 +701,24 @@ public class Player {
 
     static final class Bomberman implements GameObject {
 
+        private final int id;
         private final Position pos;
         private final int bombRange;
+        private final int bombCountdown;
         private final int leftBombs;
         private final int overallBombs;
 
-        public Bomberman(Position pos, int bombRange, int leftBombs, int overallBombs) {
+        public Bomberman(int id, Position pos, int bombRange, int bombCountdown, int leftBombs, int overallBombs) {
+            this.id = id;
             this.pos = pos;
             this.bombRange = bombRange;
+            this.bombCountdown = bombCountdown;
             this.leftBombs = leftBombs;
             this.overallBombs = overallBombs;
+        }
+
+        public int getId() {
+            return id;
         }
 
         @Override
@@ -463,6 +728,10 @@ public class Player {
 
         public int getBombRange() {
             return bombRange;
+        }
+
+        public int getBombCountdown() {
+            return bombCountdown;
         }
 
         public int getLeftBombs() {
@@ -476,8 +745,10 @@ public class Player {
         @Override
         public String toString() {
             final StringBuilder sb = new StringBuilder("Bomberman{");
-            sb.append("pos=").append(pos);
+            sb.append("id=").append(id);
+            sb.append(", pos=").append(pos);
             sb.append(", bombRange=").append(bombRange);
+            sb.append(", bombCountdown=").append(bombCountdown);
             sb.append(", leftBombs=").append(leftBombs);
             sb.append(", overallBombs=").append(overallBombs);
             sb.append('}');
@@ -518,6 +789,10 @@ public class Player {
 
         public static Position of(int x, int y) {
             return store[x][y];
+        }
+
+        public static boolean isValid(int n, int m, int x, int y) {
+            return !(x < 0 || x >= n || y < 0 || y >= m);
         }
 
         public int getX() {
