@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.github.nighturs.codingame.hypersonic.Player.Position.of;
+import static com.github.nighturs.codingame.hypersonic.Player.planTurn;
 import static java.util.Collections.emptyList;
 import static org.junit.Assert.*;
 
@@ -87,8 +88,8 @@ public class PlayerTest {
         ..W..
          */
         gameObjects = Arrays.asList(new Wall(of(0, 1)), new Wall(of(0, 3)), new Wall(of(2, 2)), new Box(of(0, 2)));
-        gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 2), "BOMB{1,2}"), FarmBoxesStrategy.createStrategy(gameState).action());
+        gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), gameObjects);
+        assertEquals(new MoveAction(of(1, 2), "BOMB{1,2}"), planTurn(gameState));
 
         /*
         .WCW.
@@ -103,8 +104,8 @@ public class PlayerTest {
                         new Wall(of(2, 1)),
                         new Wall(of(2, 3)),
                         new Box(of(0, 2)));
-        gameState = new GameState(3, 5, new Bomberman(1, of(1, 2), 2, 8, 1, 1), emptyList(), gameObjects);
-        assertEquals(new PlaceBombAction(of(1, 1)), FarmBoxesStrategy.createStrategy(gameState).action());
+        gameState = new GameState(n, m, new Bomberman(1, of(1, 2), 2, 8, 1, 1), emptyList(), gameObjects);
+        assertEquals(new PlaceBombAction(of(1, 1)), planTurn(gameState));
 
         /*
         B.CW.
@@ -122,8 +123,8 @@ public class PlayerTest {
                         new Box(of(0, 2)),
                         new Box(of(1, 2)),
                         new Bomb(0, 1, 2, of(0, 0), 1));
-        gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 1), "BOMB{1,1}"), FarmBoxesStrategy.createStrategy(gameState).action());
+        gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
+        assertEquals(new MoveAction(of(1, 1), "BOMB{1,1}"), planTurn(gameState));
 
          /*
         .BCW.
@@ -141,7 +142,31 @@ public class PlayerTest {
                         new Box(of(0, 2)),
                         new Box(of(1, 2)),
                         new Bomb(0, 1, 2, of(0, 1), 1));
-        gameState = new GameState(3, 5, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 0), "BOMB{1,1}"), FarmBoxesStrategy.createStrategy(gameState).action());
+        gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
+        assertEquals(new MoveAction(of(1, 0), "BOMB{1,1}"), planTurn(gameState));
+    }
+
+    @Test
+    public void testSurviveStrategy() {
+        int n = 3;
+        int m = 5;
+
+        List<GameObject> gameObjects;
+        GameState gameState;
+        /*
+        .WCW.
+        .PBW.
+        WWW..
+         */
+        gameObjects = Arrays.asList(new Wall(of(0, 1)),
+                new Wall(of(0, 3)),
+                new Wall(of(1, 3)),
+                new Wall(of(2, 0)),
+                new Wall(of(2, 1)),
+                new Wall(of(2, 2)),
+                new Box(of(0, 2)),
+                new Bomb(0, 2, 3, of(1, 2), 0));
+        gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), gameObjects);
+        assertEquals(new MoveAction(of(1, 0)), planTurn(gameState));
     }
 }

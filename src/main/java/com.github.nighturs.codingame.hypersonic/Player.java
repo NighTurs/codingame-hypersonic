@@ -52,8 +52,16 @@ class Player {
 
             GameState gs = new GameState(height, width, myBomberman, enemyBomberman, gameObjects);
 
-            System.out.println(FarmBoxesStrategy.createStrategy(gs).action().formatLine());
+            System.out.println(planTurn(gs).formatLine());
         }
+    }
+
+    static Action planTurn(GameState gameState) {
+        List<Strategy> strategies = new ArrayList<>();
+        strategies.add(FarmBoxesStrategy.createStrategy(gameState));
+        strategies.add(SurviveStrategy.createStrategy(gameState));
+        strategies.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
+        return strategies.get(0).action();
     }
 
     static class GameState {
@@ -97,21 +105,106 @@ class Player {
         }
     }
 
-    static class FarmBoxesStrategy implements Strategy {
-
+    static class SurviveStrategy implements Strategy {
         private static final int TURNS_TO_REACH_SAFETY = 10;
-        private static final int MAX_POSITION_VISIT_TIMES = 5;
+        private static final int MAX_POSITION_VISIT_TIMES = 10;
+
         private final Action action;
 
-        public static FarmBoxesStrategy createStrategy(GameState gameState) {
-            return new FarmBoxesStrategy(searchForBestBomb(gameState,
+        public static SurviveStrategy createStrategy(GameState gameState) {
+            return new SurviveStrategy(findMoveToSurvive(gameState,
                     gameState.getMyBomberman().getPos(),
                     0,
                     gameState.getBoard()));
         }
 
-        private FarmBoxesStrategy(Action action) {
+        private SurviveStrategy(Action action) {
             this.action = action;
+        }
+
+        private static MoveAction findMoveToSurvive(GameState gameState, Position myPosition, int time, Board board) {
+            Queue<FarmBoxesStrategy.SearchPosition> queue = new ArrayDeque<>();
+            queue.add(new FarmBoxesStrategy.SearchPosition(null, myPosition, time));
+
+            Map<Position, Set<Integer>> positionVisitTimes = new HashMap<>();
+            positionVisitTimes.put(myPosition, new HashSet<>());
+            positionVisitTimes.get(myPosition).add(time);
+            MoveAction moveToSurvive = null;
+
+            while (!queue.isEmpty()) {
+                FarmBoxesStrategy.SearchPosition sp = queue.poll();
+                int nowX = sp.getPos().getX();
+                int nowY = sp.getPos().getY();
+                int nowTime = sp.getTime();
+                int nextTime = nowTime + 1;
+
+                if (sp.getTime() - time >= TURNS_TO_REACH_SAFETY) {
+                    moveToSurvive = (MoveAction) sp.getInitiateAction();
+                    break;
+                }
+
+                for (int j1 = -1; j1 <= 1; j1++) {
+                    for (int j2 = -1; j2 <= 1; j2++) {
+                        if (j1 == 0 || j2 == 0) {
+                            int newX = nowX + j1;
+                            int newY = nowY + j2;
+                            if (!Position.isValid(gameState.getN(), gameState.getM(), newX, newY)) {
+                                continue;
+                            }
+                            Position newPos = Position.of(newX, newY);
+                            if (positionVisitTimes.containsKey(newPos) &&
+                                    (positionVisitTimes.get(newPos).contains(nextTime) ||
+                                            positionVisitTimes.get(newPos).size() >= MAX_POSITION_VISIT_TIMES)) {
+                                continue;
+                            }
+
+                            if (board.isCellPassable(newPos, nextTime)) {
+                                positionVisitTimes.putIfAbsent(newPos, new HashSet<>());
+                                positionVisitTimes.get(newPos).add(nextTime);
+                                Action initiateAction = sp.getInitiateAction() == null ?
+                                        new MoveAction(newPos) :
+                                        sp.getInitiateAction();
+                                queue.add(new FarmBoxesStrategy.SearchPosition(initiateAction, newPos, nextTime));
+                            }
+                        }
+                    }
+                }
+            }
+            return moveToSurvive;
+        }
+
+        @Override
+        public Action action() {
+            return action;
+        }
+
+        @Override
+        public int priority() {
+            return 10;
+        }
+    }
+
+    static class FarmBoxesStrategy implements Strategy {
+
+        private static final int MAX_POSITION_VISIT_TIMES = 5;
+        private final Action action;
+        private final int priority;
+
+        public static FarmBoxesStrategy createStrategy(GameState gameState) {
+            Action action = searchForBestBomb(gameState,
+                    gameState.getMyBomberman().getPos(),
+                    0,
+                    gameState.getBoard());
+            int priority = 20;
+            if (action == null) {
+                priority = 5;
+            }
+            return new FarmBoxesStrategy(action, priority);
+        }
+
+        private FarmBoxesStrategy(Action action, int priority) {
+            this.action = action;
+            this.priority = priority;
         }
 
         private static Action searchForBestBomb(GameState gameState, Position myPosition, int time, Board board) {
@@ -164,7 +257,7 @@ class Player {
                         }
                     }
 
-                    MoveAction moveToSurvive = findMoveToSurvive(gameState,
+                    MoveAction moveToSurvive = SurviveStrategy.findMoveToSurvive(gameState,
                             sp.getPos(),
                             nowTime,
                             Board.appendTimeline(board,
@@ -215,58 +308,7 @@ class Player {
                 }
             }
 
-            return bestScoreAction == null ? new MoveAction(myPosition) : bestScoreAction;
-        }
-
-        private static MoveAction findMoveToSurvive(GameState gameState, Position myPosition, int time, Board board) {
-            Queue<SearchPosition> queue = new ArrayDeque<>();
-            queue.add(new SearchPosition(null, myPosition, time));
-
-            Map<Position, Set<Integer>> positionVisitTimes = new HashMap<>();
-            positionVisitTimes.put(myPosition, new HashSet<>());
-            positionVisitTimes.get(myPosition).add(time);
-            MoveAction moveToSurvive = null;
-
-            while (!queue.isEmpty()) {
-                SearchPosition sp = queue.poll();
-                int nowX = sp.getPos().getX();
-                int nowY = sp.getPos().getY();
-                int nowTime = sp.getTime();
-                int nextTime = nowTime + 1;
-
-                if (sp.getTime() - time >= TURNS_TO_REACH_SAFETY) {
-                    moveToSurvive = (MoveAction) sp.getInitiateAction();
-                    break;
-                }
-
-                for (int j1 = -1; j1 <= 1; j1++) {
-                    for (int j2 = -1; j2 <= 1; j2++) {
-                        if (j1 == 0 || j2 == 0) {
-                            int newX = nowX + j1;
-                            int newY = nowY + j2;
-                            if (!Position.isValid(gameState.getN(), gameState.getM(), newX, newY)) {
-                                continue;
-                            }
-                            Position newPos = Position.of(newX, newY);
-                            if (positionVisitTimes.containsKey(newPos) &&
-                                    (positionVisitTimes.get(newPos).contains(nextTime) ||
-                                            positionVisitTimes.get(newPos).size() >= MAX_POSITION_VISIT_TIMES)) {
-                                continue;
-                            }
-
-                            if (board.isCellPassable(newPos, nextTime)) {
-                                positionVisitTimes.putIfAbsent(newPos, new HashSet<>());
-                                positionVisitTimes.get(newPos).add(nextTime);
-                                Action initiateAction = sp.getInitiateAction() == null ?
-                                        new MoveAction(newPos) :
-                                        sp.getInitiateAction();
-                                queue.add(new SearchPosition(initiateAction, newPos, nextTime));
-                            }
-                        }
-                    }
-                }
-            }
-            return moveToSurvive;
+            return bestScoreAction;
         }
 
         private static double calcScore(int time, int boxes) {
@@ -284,10 +326,10 @@ class Player {
 
         @Override
         public int priority() {
-            return 1;
+            return priority;
         }
 
-        private static class SearchPosition {
+        static class SearchPosition {
 
             private final Action initiateAction;
             private final Position pos;
