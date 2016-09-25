@@ -35,11 +35,112 @@ public class Player {
 
     static class GameState {
 
+        private Bomberman myBomberman;
+        private List<Bomberman> enemyBomberman;
+        private Board board;
+
+        public Bomberman getMyBomberman() {
+            return myBomberman;
+        }
+
+        public List<Bomberman> getEnemyBomberman() {
+            return enemyBomberman;
+        }
+
+        public Board getBoard() {
+            return board;
+        }
+    }
+
+    static class FarmBoxesStrategy implements Strategy {
+
+        public static FarmBoxesStrategy createStrategy(GameState gameState) {
+            throw new RuntimeException();
+        }
+
+        @Override
+        public Action action() {
+            return null;
+        }
+
+        @Override
+        public int priority() {
+            return 0;
+        }
+    }
+
+    interface Strategy {
+
+        Action action();
+
+        int priority();
+    }
+
+    interface Action {
+
+        String formatLine();
+    }
+
+    static class MoveAction implements Action {
+
+        private final Position pos;
+        private final String text;
+
+        public MoveAction(Position pos) {
+            this(pos, "");
+        }
+
+        public MoveAction(Position pos, String text) {
+            this.pos = pos;
+            this.text = text;
+        }
+
+        public Position getPos() {
+            return pos;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        @Override
+        public String formatLine() {
+            return String.format("MOVE %d %d %s", pos.getX(), pos.getY(), text);
+        }
+    }
+
+    static class PlaceBombAction implements Action {
+
+        private final Position pos;
+        private final String text;
+
+        public PlaceBombAction(Position pos) {
+            this(pos, "");
+        }
+
+        public PlaceBombAction(Position pos, String text) {
+            this.pos = pos;
+            this.text = text;
+        }
+
+        public Position getPos() {
+            return pos;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        @Override
+        public String formatLine() {
+            return String.format("BOMB %d %d %s", pos.getX(), pos.getY(), text);
+        }
     }
 
     static class Board {
 
         private static final int INF = Integer.MAX_VALUE;
+        private static final int MAX_BOMBERMAN = 4;
         final int n;
         final int m;
         final List<GameObject> gameObjects;
@@ -47,6 +148,8 @@ public class Player {
         final int[][] hasBoxUntil;
         final int[][] hasBombUntil;
         final Map<Position, List<Integer>> explosions;
+        final int[] bombsByBomberman;
+        final List<List<Integer>> explosionTimesByBomberman;
 
         public static Board createBoard(int n, int m, List<GameObject> gameObjects) {
             boolean[][] hasWall = new boolean[n][m];
@@ -71,7 +174,12 @@ public class Player {
             this.gameObjects = gameObjects;
             this.hasBoxUntil = fill(new int[n][m], -1);
             this.hasBombUntil = fill(new int[n][m], -1);
-            explosions = new HashMap<>();
+            this.bombsByBomberman = new int[MAX_BOMBERMAN];
+            this.explosionTimesByBomberman = new ArrayList<>();
+            for (int i = 0; i < MAX_BOMBERMAN; i++) {
+                explosionTimesByBomberman.add(new ArrayList<>());
+            }
+            this.explosions = new HashMap<>();
             calcFuture();
         }
 
@@ -98,10 +206,12 @@ public class Player {
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isBox;
                     hasBoxUntil[o.getPos().getX()][o.getPos().getY()] = INF;
                 } else if (o instanceof Bomb) {
-                    bombs.add((Bomb) o);
+                    Bomb bomb = (Bomb) o;
+                    bombs.add(bomb);
                     bombsByPosition.putIfAbsent(o.getPos(), new ArrayList<>());
-                    bombsByPosition.get(o.getPos()).add((Bomb) o);
+                    bombsByPosition.get(o.getPos()).add(bomb);
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isBomb;
+                    bombsByBomberman[bomb.getOwnerId()]++;
                 }
             }
             nextTurnBoard = curTurnBoard.clone();
@@ -119,6 +229,8 @@ public class Player {
                 Bomb initiatorBomb = bombs.get(nextBombToDetonate);
                 isDetonated.add(initiatorBomb);
                 hasBombUntil[initiatorBomb.getPos().getX()][initiatorBomb.getPos().getY()] = minDetonateTime - 1;
+                explosionTimesByBomberman.get(initiatorBomb.getOwnerId())
+                        .add(minDetonateTime);
                 Queue<Bomb> toDetonateBombs = new ArrayDeque<>();
                 toDetonateBombs.add(initiatorBomb);
                 Set<Position> exploadedCells = new HashSet<>();
@@ -133,7 +245,7 @@ public class Player {
                                 for (int d = 0; d < range; d++) {
                                     int newX = x + i * d;
                                     int newY = y + h * d;
-                                    if (newX < 0 || newX >=n || newY < 0 || newY >= m) {
+                                    if (newX < 0 || newX >= n || newY < 0 || newY >= m) {
                                         break;
                                     }
                                     Position newPos = Position.of(newX, newY);
@@ -146,6 +258,8 @@ public class Player {
                                                 toDetonateBombs.add(bomb);
                                                 hasBombUntil[bomb.getPos().getX()][bomb.getPos().getY()] =
                                                         minDetonateTime - 1;
+                                                explosionTimesByBomberman.get(bomb.getOwnerId())
+                                                        .add(minDetonateTime);
                                                 struckObstruction = true;
                                                 nextTurnBoard[newX][newY] = isEmpty;
                                             }
@@ -210,6 +324,17 @@ public class Player {
                 return -1;
             }
         }
+
+        public int bombermanBombsUsed(int bombermanId, int time) {
+            int usedOverall = bombsByBomberman[bombermanId];
+            for (int i = 0; i < explosionTimesByBomberman.get(bombermanId).size(); i++) {
+                int explosionTime = explosionTimesByBomberman.get(bombermanId).get(i);
+                if (explosionTime <= time) {
+                    usedOverall--;
+                }
+            }
+            return usedOverall;
+        }
     }
 
     static final class Wall implements GameObject {
@@ -254,12 +379,14 @@ public class Player {
         private final int countdown;
         private final int range;
         private final Position pos;
+        private final int ownerId;
 
-        public Bomb(int createTime, int countdown, int range, Position pos) {
+        public Bomb(int createTime, int countdown, int range, Position pos, int ownerId) {
             this.createTime = createTime;
             this.countdown = countdown;
             this.range = range;
             this.pos = pos;
+            this.ownerId = ownerId;
         }
 
         public int getCountdown() {
@@ -270,12 +397,18 @@ public class Player {
             return range;
         }
 
+        @Override
         public Position getPos() {
             return pos;
         }
 
+        @Override
         public int createTime() {
             return createTime;
+        }
+
+        public int getOwnerId() {
+            return ownerId;
         }
 
         @Override
@@ -288,18 +421,67 @@ public class Player {
             }
             Bomb bomb = (Bomb) o;
             return createTime == bomb.createTime && countdown == bomb.countdown && range == bomb.range &&
-                    Objects.equals(pos, bomb.pos);
+                    ownerId == bomb.ownerId && Objects.equals(pos, bomb.pos);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(createTime, countdown, range, pos);
+            return Objects.hash(createTime, countdown, range, pos, ownerId);
         }
 
         @Override
         public String toString() {
-            return "Bomb{" + "createTime=" + createTime + ", countdown=" + countdown + ", range=" + range + ", pos=" +
-                    pos + '}';
+            final StringBuilder sb = new StringBuilder("Bomb{");
+            sb.append("createTime=").append(createTime);
+            sb.append(", countdown=").append(countdown);
+            sb.append(", range=").append(range);
+            sb.append(", pos=").append(pos);
+            sb.append(", ownerId=").append(ownerId);
+            sb.append('}');
+            return sb.toString();
+        }
+    }
+
+    static final class Bomberman implements GameObject {
+
+        private final Position pos;
+        private final int bombRange;
+        private final int leftBombs;
+        private final int overallBombs;
+
+        public Bomberman(Position pos, int bombRange, int leftBombs, int overallBombs) {
+            this.pos = pos;
+            this.bombRange = bombRange;
+            this.leftBombs = leftBombs;
+            this.overallBombs = overallBombs;
+        }
+
+        @Override
+        public Position getPos() {
+            return pos;
+        }
+
+        public int getBombRange() {
+            return bombRange;
+        }
+
+        public int getLeftBombs() {
+            return leftBombs;
+        }
+
+        public int getOverallBombs() {
+            return overallBombs;
+        }
+
+        @Override
+        public String toString() {
+            final StringBuilder sb = new StringBuilder("Bomberman{");
+            sb.append("pos=").append(pos);
+            sb.append(", bombRange=").append(bombRange);
+            sb.append(", leftBombs=").append(leftBombs);
+            sb.append(", overallBombs=").append(overallBombs);
+            sb.append('}');
+            return sb.toString();
         }
     }
 

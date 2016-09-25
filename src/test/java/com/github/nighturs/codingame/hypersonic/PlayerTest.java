@@ -35,11 +35,11 @@ public class PlayerTest {
                         new Box(of(5, 3)),
                         new Box(of(10, 3)),
                         new Box(of(7, 9)),
-                        new Bomb(0, 2, 5, of(3, 3)),
-                        new Bomb(2, 2, 5, of(3, 7)),
-                        new Bomb(3, 2, 5, of(7, 7)),
-                        new Bomb(3, 3, 5, of(7, 3)),
-                        new Bomb(5, 4, 10, of(1, 5)),
+                        new Bomb(0, 2, 5, of(3, 3), 1),
+                        new Bomb(2, 2, 5, of(3, 7), 1),
+                        new Bomb(3, 2, 5, of(7, 7), 1),
+                        new Bomb(3, 3, 5, of(7, 3), 1),
+                        new Bomb(5, 4, 10, of(1, 5), 2),
                         new Wall(of(7, 8))));
         assertFalse(board.isCellPassable(of(7, 8), 1));
         assertFalse(board.isCellPassable(of(7, 8), 100));
@@ -66,7 +66,12 @@ public class PlayerTest {
         assertEquals(2, board.nextExplosionInCell(of(5, 3), 0));
         assertEquals(-1, board.nextExplosionInCell(of(5, 3), 2));
         assertEquals(9, board.nextExplosionInCell(of(1, 9), 2));
+
+        assertEquals(4, board.bombermanBombsUsed(1, 0));
+        assertEquals(4, board.bombermanBombsUsed(1, 1));
+        assertEquals(0, board.bombermanBombsUsed(1, 2));
+        assertEquals(0, board.bombermanBombsUsed(1, 3));
+        assertEquals(1, board.bombermanBombsUsed(2, 2));
+        assertEquals(0, board.bombermanBombsUsed(2, 9));
     }
-
-
 }
