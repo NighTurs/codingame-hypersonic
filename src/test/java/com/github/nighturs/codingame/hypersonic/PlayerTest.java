@@ -7,7 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static com.github.nighturs.codingame.hypersonic.Player.Position.of;
-import static com.github.nighturs.codingame.hypersonic.Player.planTurn;
+import static com.github.nighturs.codingame.hypersonic.Player.*;
 import static java.util.Collections.emptyList;
 import static org.junit.Assert.*;
 
@@ -105,14 +105,13 @@ public class PlayerTest {
         ..PW.
         .WWW.
          */
-        gameObjects =
-                Arrays.asList(new Wall(of(0, 1)),
-                        new Wall(of(0, 3)),
-                        new Wall(of(2, 2)),
-                        new Wall(of(1, 3)),
-                        new Wall(of(2, 1)),
-                        new Wall(of(2, 3)),
-                        new Box(of(0, 2)));
+        gameObjects = Arrays.asList(new Wall(of(0, 1)),
+                new Wall(of(0, 3)),
+                new Wall(of(2, 2)),
+                new Wall(of(1, 3)),
+                new Wall(of(2, 1)),
+                new Wall(of(2, 3)),
+                new Box(of(0, 2)));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 2), 2, 8, 1, 1), emptyList(), gameObjects);
         assertEquals(new PlaceBombAction(of(1, 1)), planTurn(gameState));
 
@@ -121,17 +120,16 @@ public class PlayerTest {
         .PCW.
         WWWW.
          */
-        gameObjects =
-                Arrays.asList(new Wall(of(0, 3)),
-                        new Wall(of(1, 3)),
-                        new Wall(of(2, 3)),
-                        new Wall(of(1, 3)),
-                        new Wall(of(2, 0)),
-                        new Wall(of(2, 1)),
-                        new Wall(of(2, 2)),
-                        new Box(of(0, 2)),
-                        new Box(of(1, 2)),
-                        new Bomb(0, 1, 2, of(0, 0), 1));
+        gameObjects = Arrays.asList(new Wall(of(0, 3)),
+                new Wall(of(1, 3)),
+                new Wall(of(2, 3)),
+                new Wall(of(1, 3)),
+                new Wall(of(2, 0)),
+                new Wall(of(2, 1)),
+                new Wall(of(2, 2)),
+                new Box(of(0, 2)),
+                new Box(of(1, 2)),
+                new Bomb(0, 1, 2, of(0, 0), 1));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 1), "BOMB{1,1}"), planTurn(gameState));
 
@@ -140,32 +138,44 @@ public class PlayerTest {
         .PCW.
         WWWW.
          */
-        gameObjects =
-                Arrays.asList(new Wall(of(0, 3)),
-                        new Wall(of(1, 3)),
-                        new Wall(of(2, 3)),
-                        new Wall(of(1, 3)),
-                        new Wall(of(2, 0)),
-                        new Wall(of(2, 1)),
-                        new Wall(of(2, 2)),
-                        new Box(of(0, 2)),
-                        new Box(of(1, 2)),
-                        new Bomb(0, 1, 2, of(0, 1), 1));
+        gameObjects = Arrays.asList(new Wall(of(0, 3)),
+                new Wall(of(1, 3)),
+                new Wall(of(2, 3)),
+                new Wall(of(1, 3)),
+                new Wall(of(2, 0)),
+                new Wall(of(2, 1)),
+                new Wall(of(2, 2)),
+                new Box(of(0, 2)),
+                new Box(of(1, 2)),
+                new Bomb(0, 1, 2, of(0, 1), 1));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 0), "BOMB{1,1}"), planTurn(gameState));
 
         /*
         ..CW.
-        IP.W.
+        .PIW.
         .....
          */
         gameObjects = Arrays.asList(new Wall(of(0, 3)),
                 new Wall(of(1, 3)),
                 new Box(of(0, 2)),
-                new Item(Item.Type.BOMB, of(1, 0)));
+                new Item(Item.Type.BOMB, of(1, 2)));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 3, 8, 1, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 0), "BOMB{0,0}"), planTurn(gameState));
+        assertEquals(new MoveAction(of(1, 2), "BOMB{1,2}"), planTurn(gameState));
 
+        /*
+        CIPIC
+        .W.W.
+        .....
+         */
+        gameObjects = Arrays.asList(new Wall(of(1, 1)),
+                new Wall(of(1, 3)),
+                new Item(Item.Type.BOMB, of(0, 1)),
+                new Item(Item.Type.BOMB, of(0, 3)),
+                new Box(of(0, 0)),
+                new Box(of(0, 4)));
+        gameState = new GameState(n, m, new Bomberman(1, of(0, 2), 3, 8, 1, 1), emptyList(), gameObjects);
+        assertTrue(planTurn(gameState) instanceof MoveAction);
     }
 
     @Test
