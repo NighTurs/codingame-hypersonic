@@ -281,7 +281,7 @@ class Player {
                                     if (board.isCellBox(newPos, explosionTime)) {
                                         boxesBlown++;
                                     }
-                                    if (!board.isCellPassable(newPos, explosionTime)) {
+                                    if (!board.isCellPassableByExplosion(newPos, explosionTime)) {
                                         break;
                                     }
                                     if (d != 0 && board.isCellHasItem(newPos, explosionTime)) {
@@ -695,11 +695,17 @@ class Player {
             }
         }
 
+        public boolean isCellPassableByExplosion(Position pos, int time) {
+            int x = pos.getX();
+            int y = pos.getY();
+            return !(hasWall[x][y] || hasBombUntil[x][y] >= time || hasBoxUntil[x][y] >= time);
+        }
+
         public boolean isCellPassable(Position pos, int time) {
             int x = pos.getX();
             int y = pos.getY();
             return !(hasWall[x][y] || hasBombUntil[x][y] >= time || hasBoxUntil[x][y] >= time ||
-                    (explosions.get(pos) != null && explosions.get(pos).contains(time)));
+                    (explosions.get(pos) != null && explosions.get(pos).contains(time + 1)));
         }
 
         public boolean isCellVacantForBomb(Position pos, int time) {

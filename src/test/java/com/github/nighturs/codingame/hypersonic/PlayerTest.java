@@ -48,10 +48,10 @@ public class PlayerTest {
         assertFalse(board.isCellBox(of(4, 3), 3));
         assertTrue(board.isCellBox(of(5, 3), 1));
         assertFalse(board.isCellBox(of(5, 3), 2));
-        assertFalse(board.isCellPassable(of(4, 3), 2));
-        assertTrue(board.isCellPassable(of(4, 3), 3));
-        assertTrue(board.isCellPassable(of(6, 3), 1));
-        assertFalse(board.isCellPassable(of(6, 3), 2));
+        assertFalse(board.isCellPassable(of(4, 3), 1));
+        assertTrue(board.isCellPassable(of(4, 3), 2));
+        assertFalse(board.isCellPassable(of(6, 3), 1));
+        assertTrue(board.isCellPassable(of(6, 3), 2));
         assertTrue(board.isCellPassable(of(6, 3), 3));
         assertFalse(board.isCellPassable(of(7, 7), 1));
         assertTrue(board.isCellPassable(of(7, 7), 3));
@@ -129,7 +129,7 @@ public class PlayerTest {
                 new Wall(of(2, 2)),
                 new Box(of(0, 2)),
                 new Box(of(1, 2)),
-                new Bomb(0, 1, 2, of(0, 0), 1));
+                new Bomb(0, 1, 3, of(0, 0), 1));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 1), "BOMB{1,1}"), planTurn(gameState));
 
@@ -147,7 +147,7 @@ public class PlayerTest {
                 new Wall(of(2, 2)),
                 new Box(of(0, 2)),
                 new Box(of(1, 2)),
-                new Bomb(0, 1, 2, of(0, 1), 1));
+                new Bomb(0, 2, 2, of(0, 1), 1));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 0), "BOMB{1,1}"), planTurn(gameState));
 
@@ -197,7 +197,7 @@ public class PlayerTest {
                 new Wall(of(2, 1)),
                 new Wall(of(2, 2)),
                 new Box(of(0, 2)),
-                new Bomb(0, 2, 3, of(1, 2), 0));
+                new Bomb(0, 3, 3, of(1, 2), 0));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 0)), planTurn(gameState));
     }
