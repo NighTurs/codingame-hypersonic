@@ -200,5 +200,20 @@ public class PlayerTest {
                 new Bomb(0, 3, 3, of(1, 2), 0));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 0)), planTurn(gameState));
+        /*
+        .WBW.
+        .WPW.
+        .WWW.
+         */
+        gameObjects = Arrays.asList(new Wall(of(0, 1)),
+                new Wall(of(0, 3)),
+                new Wall(of(1, 1)),
+                new Wall(of(1, 3)),
+                new Wall(of(2, 1)),
+                new Wall(of(2, 2)),
+                new Wall(of(2, 3)),
+                new Bomb(0, 3, 3, of(0, 2), 0));
+        gameState = new GameState(n, m, new Bomberman(1, of(1, 2), 2, 8, 1, 1), emptyList(), gameObjects);
+        assertEquals(new MoveAction(of(1, 2)), planTurn(gameState));
     }
 }

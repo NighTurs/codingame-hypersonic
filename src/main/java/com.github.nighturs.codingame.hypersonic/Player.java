@@ -85,7 +85,8 @@ class Player {
         strategies.add(FarmBoxesStrategy.createStrategy(gameState));
         strategies.add(SurviveStrategy.createStrategy(gameState));
         strategies.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
-        return strategies.get(0).action();
+        return Optional.ofNullable(strategies.get(0).action())
+                .orElse(new MoveAction(gameState.getMyBomberman().getPos()));
     }
 
     static class GameState {
