@@ -638,8 +638,9 @@ class Player {
                                     }
                                     Position newPos = Position.of(newX, newY);
                                     boolean struckObstruction = false;
+                                    boolean useHackedTransparentItems = false;
 
-                                    if (bombsByPosition.get(newPos) != null) {
+                                    if (bombsByPosition.get(newPos) != null && !useHackedTransparentItems) {
                                         for (Bomb bomb : bombsByPosition.get(newPos)) {
                                             if (!isDetonated.contains(bomb)) {
                                                 isDetonated.add(bomb);
@@ -653,7 +654,7 @@ class Player {
                                         }
                                     }
 
-                                    if (curTurnBoard[newX][newY] == isBoxWithItem) {
+                                    if (curTurnBoard[newX][newY] == isBoxWithItem && !useHackedTransparentItems) {
                                         nextTurnBoard[newX][newY] = isItem;
                                         hasBoxUntil[newX][newY] = minDetonateTime - 1;
                                         hasItemSince[newX][newY] = minDetonateTime;
@@ -661,16 +662,17 @@ class Player {
                                         struckObstruction = true;
                                     }
 
-                                    if (curTurnBoard[newX][newY] == isBox) {
+                                    if (curTurnBoard[newX][newY] == isBox && !useHackedTransparentItems) {
                                         nextTurnBoard[newX][newY] = isEmpty;
                                         hasBoxUntil[newX][newY] = minDetonateTime - 1;
                                         struckObstruction = true;
                                     }
 
-                                    if (curTurnBoard[newX][newY] == isItem) {
+                                    if (curTurnBoard[newX][newY] == isItem && !useHackedTransparentItems) {
                                         nextTurnBoard[newX][newY] = isEmpty;
                                         hasItemUntil[newX][newY] = minDetonateTime - 1;
-                                        struckObstruction = true;
+                                        struckObstruction = false;
+                                        useHackedTransparentItems = true;
                                     }
 
                                     if (curTurnBoard[newX][newY] == isWall) {
