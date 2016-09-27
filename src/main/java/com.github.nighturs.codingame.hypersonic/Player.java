@@ -284,6 +284,9 @@ class Player {
                                     if (!board.isCellPassable(newPos, explosionTime)) {
                                         break;
                                     }
+                                    if (d != 0 && board.isCellHasItem(newPos, explosionTime)) {
+                                        break;
+                                    }
                                 }
                             }
                         }
