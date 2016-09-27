@@ -85,6 +85,8 @@ class Player {
         strategies.add(FarmBoxesStrategy.createStrategy(gameState));
         strategies.add(SurviveStrategy.createStrategy(gameState));
         strategies.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
+        strategies.add(DontAllowToBeTrappedStrategy.createStrategy(gameState, strategies.get(0).action()));
+        strategies.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
         return Optional.ofNullable(strategies.get(0).action())
                 .orElse(new MoveAction(gameState.getMyBomberman().getPos()));
     }
@@ -127,6 +129,78 @@ class Player {
 
         public Board getBoard() {
             return board;
+        }
+    }
+
+    static class DontAllowToBeTrappedStrategy implements Strategy {
+
+        private final Action action;
+        private final int priority;
+
+        public static DontAllowToBeTrappedStrategy createStrategy(GameState gameState, Action myMove) {
+            if (myMove == null) {
+                return new DontAllowToBeTrappedStrategy(null, -10);
+            }
+            Action action = pickOtherActionIfInHazzard(gameState, myMove);
+            if (action == null) {
+                return new DontAllowToBeTrappedStrategy(null, -10);
+            } else {
+                return new DontAllowToBeTrappedStrategy(action, 100);
+            }
+        }
+
+        public DontAllowToBeTrappedStrategy(Action action, int priority) {
+            this.action = action;
+            this.priority = priority;
+        }
+
+        private static Action pickOtherActionIfInHazzard(GameState gameState, Action myMove) {
+            Bomberman myBomberman = gameState.getMyBomberman();
+            for (Bomberman enemy : gameState.getEnemyBomberman()) {
+                if (enemy.getLeftBombs() == 0) {
+                    continue;
+                }
+                List<TimelineGameObject> newBombs = new ArrayList<>();
+                newBombs.add(new Bomb(1,
+                        enemy.getBombCountdown(),
+                        enemy.getBombRange(),
+                        enemy.getPos(),
+                        enemy.getId()));
+                if (myMove instanceof PlaceBombAction) {
+                    newBombs.add(new Bomb(1,
+                            myBomberman.getBombCountdown(),
+                            myBomberman.getBombRange(),
+                            myBomberman.getPos(),
+                            myBomberman.getId()));
+                }
+                @SuppressWarnings("ConstantConditions")
+                Position movingTo = myMove instanceof MoveAction ? ((MoveAction) myMove).getPos() :
+                        ((PlaceBombAction) myMove).getPos();
+
+                Board.appendTimeline(gameState.getBoard(), newBombs);
+                MoveAction surviveAction = SurviveStrategy.findMoveToSurvive(gameState,
+                        movingTo,
+                        1,
+                        Board.appendTimeline(gameState.getBoard(), newBombs));
+
+                if (surviveAction == null) {
+                    return SurviveStrategy.findMoveToSurvive(gameState,
+                            myBomberman.getPos(),
+                            0,
+                            Board.appendTimeline(gameState.getBoard(), Collections.singletonList(newBombs.get(0))));
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public Action action() {
+            return action;
+        }
+
+        @Override
+        public int priority() {
+            return priority;
         }
     }
 
@@ -518,6 +592,7 @@ class Player {
         final List<GameObject> gameObjects;
         final boolean[][] hasWall;
         final int[][] hasBoxUntil;
+        final int[][] hasBombSince;
         final int[][] hasBombUntil;
         final int[][] hasItemSince;
         final int[][] hasItemUntil;
@@ -547,6 +622,7 @@ class Player {
             this.hasWall = hasWall;
             this.gameObjects = gameObjects;
             this.hasBoxUntil = fill(new int[n][m], -1);
+            this.hasBombSince = fill(new int[n][m], INF);
             this.hasBombUntil = fill(new int[n][m], -1);
             this.hasItemSince = fill(new int[n][m], INF);
             this.hasItemUntil = fill(new int[n][m], -1);
@@ -598,6 +674,7 @@ class Player {
                     bombsByPosition.get(o.getPos()).add(bomb);
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isBomb;
                     bombsByBomberman[bomb.getOwnerId()]++;
+                    hasBombSince[o.getPos().getX()][o.getPos().getY()] = bomb.createTime() + 1;
                 } else if (o instanceof Item) {
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isItem;
                     hasItemUntil[o.getPos().getX()][o.getPos().getY()] = INF;
@@ -631,6 +708,7 @@ class Player {
                     for (int i = -1; i <= 1; i++) {
                         for (int h = -1; h <= 1; h++) {
                             if (i == 0 ^ h == 0) {
+                                boolean useHackedTransparentItems = false;
                                 for (int d = 0; d < range; d++) {
                                     int newX = x + i * d;
                                     int newY = y + h * d;
@@ -639,7 +717,6 @@ class Player {
                                     }
                                     Position newPos = Position.of(newX, newY);
                                     boolean struckObstruction = false;
-                                    boolean useHackedTransparentItems = false;
 
                                     if (bombsByPosition.get(newPos) != null && !useHackedTransparentItems) {
                                         for (Bomb bomb : bombsByPosition.get(newPos)) {
@@ -701,20 +778,23 @@ class Player {
         public boolean isCellPassableByExplosion(Position pos, int time) {
             int x = pos.getX();
             int y = pos.getY();
-            return !(hasWall[x][y] || hasBombUntil[x][y] >= time || hasBoxUntil[x][y] >= time);
+            return !(hasWall[x][y] || (hasBombUntil[x][y] >= time && hasBombSince[x][y] <= time) ||
+                    hasBoxUntil[x][y] >= time);
         }
 
         public boolean isCellPassable(Position pos, int time) {
             int x = pos.getX();
             int y = pos.getY();
-            return !(hasWall[x][y] || hasBombUntil[x][y] >= time || hasBoxUntil[x][y] >= time ||
+            return !(hasWall[x][y] || (hasBombUntil[x][y] >= time && hasBombSince[x][y] <= time) ||
+                    hasBoxUntil[x][y] >= time ||
                     (explosions.get(pos) != null && explosions.get(pos).contains(time + 1)));
         }
 
         public boolean isCellVacantForBomb(Position pos, int time) {
             int x = pos.getX();
             int y = pos.getY();
-            return !(hasWall[x][y] || hasBombUntil[x][y] >= time || hasBoxUntil[x][y] >= time);
+            return !(hasWall[x][y] || (hasBombUntil[x][y] >= time && hasBombSince[x][y] <= time)
+                    || hasBoxUntil[x][y] >= time);
         }
 
         public boolean isCellBox(Position pos, int time) {

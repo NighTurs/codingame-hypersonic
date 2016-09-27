@@ -4,6 +4,7 @@ import com.github.nighturs.codingame.hypersonic.Player.*;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.github.nighturs.codingame.hypersonic.Player.Position.of;
@@ -215,5 +216,57 @@ public class PlayerTest {
                 new Bomb(0, 3, 3, of(0, 2), 0));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 2), 2, 8, 1, 1), emptyList(), gameObjects);
         assertEquals(new MoveAction(of(1, 2)), planTurn(gameState));
+    }
+
+    @Test
+    public void testDontAllowToBeTrappedStrategy() {
+        int n = 3;
+        int m = 5;
+
+        List<GameObject> gameObjects;
+        GameState gameState;
+        /*
+        .WWWW
+        .PP..
+        .WWWC
+         */
+        gameObjects = Arrays.asList(new Wall(of(0, 1)),
+                new Wall(of(0, 2)),
+                new Wall(of(0, 3)),
+                new Wall(of(0, 4)),
+                new Wall(of(2, 1)),
+                new Wall(of(2, 2)),
+                new Wall(of(2, 3)),
+                new Box(of(2, 4)));
+
+        gameState = new GameState(n,
+                m,
+                new Bomberman(1, of(1, 2), 2, 8, 1, 1),
+                Collections.singletonList(new Bomberman(2, of(1, 1), 5, 8, 1, 1)),
+                gameObjects);
+        assertEquals(new MoveAction(of(1, 1)), planTurn(gameState));
+
+        /*
+        .P...
+        WIWW.
+        .CIBW
+        .....
+         */
+        gameObjects = Arrays.asList(
+                new Wall(of(1, 0)),
+                new Wall(of(1, 2)),
+                new Wall(of(1, 3)),
+                new Wall(of(2, 4)),
+                new Box(of(2, 1)),
+                new Item(Item.Type.BOMB, of(1, 1)),
+                new Item(Item.Type.BOMB, of(2, 2)),
+                new Bomb(0, 3, 10, of(2, 3), 1));
+
+        gameState = new GameState(4,
+                5,
+                new Bomberman(1, of(0, 1), 2, 8, 1, 1),
+                Collections.singletonList(new Bomberman(2, of(0, 1), 5, 8, 1, 1)),
+                gameObjects);
+        assertEquals(new MoveAction(of(0, 1)), planTurn(gameState));
     }
 }
