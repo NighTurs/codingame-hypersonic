@@ -200,7 +200,7 @@ public class PlayerTest {
                 new Box(of(0, 2)),
                 new Bomb(0, 3, 3, of(1, 2), 0));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 0)), planTurn(gameState));
+        assertEquals(new PlaceBombAction(of(1, 0)), planTurn(gameState));
         /*
         .WBW.
         .WPW.
@@ -244,7 +244,7 @@ public class PlayerTest {
                 new Bomberman(1, of(1, 2), 2, 8, 1, 1),
                 Collections.singletonList(new Bomberman(2, of(1, 1), 5, 8, 1, 1)),
                 gameObjects);
-        assertEquals(new MoveAction(of(1, 1)), planTurn(gameState));
+        assertEquals(new PlaceBombAction(of(1, 1)), planTurn(gameState));
 
         /*
         .P...
