@@ -485,6 +485,7 @@ class Player {
                                         int bombsPickedUp,
                                         int rangePickedUp) {
             double score = 1000 - time;
+            score += ordinaryBoxes + bombBoxes > 0 ? 1000 : 0;
             score += (initialLeftBombs < 2) ? ordinaryBoxes * 1.5 : ordinaryBoxes;
             score += (initialLeftBombs < 2) ? bombBoxes * 2 : bombBoxes * 1.5;
             score += bombsPickedUp * 1.5;
