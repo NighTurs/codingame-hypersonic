@@ -360,7 +360,7 @@ class Player {
                         board.bombermanBombsUsed(myBombermanId, nextTime);
                 int itemsPickedUp = sp.getPickedUpItems();
 
-                if (leftBombs > 0 && board.isCellVacantForBomb(Position.of(nowX, nowY), nextTime)) {
+                if (leftBombs > 0) {
                     int explosionTime = nextTime + gameState.getMyBomberman().getBombCountdown();
                     int nextExplosion = board.nextExplosionInCell(sp.getPos(), nowTime);
                     if (nextExplosion != -1) {
@@ -417,16 +417,6 @@ class Player {
                                                 myBombermanId))));
                         if (moveToSurvive != null) {
                             bestScore = curScore;
-                            System.err.println(String.format(
-                                    "%s, sc=%s, expTime=%s, leftB=%s, ordBo=%s, bBo=%s, bPicked=%s, rPicked=%s",
-                                    sp.getPos(),
-                                    bestScore,
-                                    explosionTime,
-                                    gameState.getMyBomberman().getLeftBombs(),
-                                    ordinaryBoxesBlown,
-                                    bombBoxesBlown,
-                                    sp.getBombsPickedUp(),
-                                    sp.getRangePickedUp()));
                             if (sp.getInitiateAction() != null) {
                                 MoveAction action = (MoveAction) sp.getInitiateAction();
                                 bestScoreAction = new MoveAction(action.getPos(),
@@ -765,7 +755,7 @@ class Player {
                     bombsByPosition.get(o.getPos()).add(bomb);
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isBomb;
                     bombsByBomberman[bomb.getOwnerId()]++;
-                    hasBombSince[o.getPos().getX()][o.getPos().getY()] = bomb.createTime() + 1;
+                    hasBombSince[o.getPos().getX()][o.getPos().getY()] = bomb.createTime();
                 } else if (o instanceof Item) {
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isItem;
                     hasItemUntil[o.getPos().getX()][o.getPos().getY()] = INF;
@@ -786,7 +776,7 @@ class Player {
                 }
                 Bomb initiatorBomb = bombs.get(nextBombToDetonate);
                 isDetonated.add(initiatorBomb);
-                hasBombUntil[initiatorBomb.getPos().getX()][initiatorBomb.getPos().getY()] = minDetonateTime - 1;
+                hasBombUntil[initiatorBomb.getPos().getX()][initiatorBomb.getPos().getY()] = minDetonateTime;
                 explosionTimesByBomberman.get(initiatorBomb.getOwnerId()).add(minDetonateTime);
                 Queue<Bomb> toDetonateBombs = new ArrayDeque<>();
                 toDetonateBombs.add(initiatorBomb);
@@ -815,7 +805,7 @@ class Player {
                                                 isDetonated.add(bomb);
                                                 toDetonateBombs.add(bomb);
                                                 hasBombUntil[bomb.getPos().getX()][bomb.getPos().getY()] =
-                                                        minDetonateTime - 1;
+                                                        minDetonateTime;
                                                 explosionTimesByBomberman.get(bomb.getOwnerId()).add(minDetonateTime);
                                                 struckObstruction = true;
                                                 nextTurnBoard[newX][newY] = isEmpty;
@@ -825,21 +815,21 @@ class Player {
 
                                     if (curTurnBoard[newX][newY] == isBoxWithItem && !useHackedTransparentItems) {
                                         nextTurnBoard[newX][newY] = isItem;
-                                        hasBoxUntil[newX][newY] = minDetonateTime - 1;
-                                        hasItemSince[newX][newY] = minDetonateTime;
+                                        hasBoxUntil[newX][newY] = minDetonateTime;
+                                        hasItemSince[newX][newY] = minDetonateTime + 1;
                                         hasItemUntil[newX][newY] = INF;
                                         struckObstruction = true;
                                     }
 
                                     if (curTurnBoard[newX][newY] == isBox && !useHackedTransparentItems) {
                                         nextTurnBoard[newX][newY] = isEmpty;
-                                        hasBoxUntil[newX][newY] = minDetonateTime - 1;
+                                        hasBoxUntil[newX][newY] = minDetonateTime;
                                         struckObstruction = true;
                                     }
 
                                     if (curTurnBoard[newX][newY] == isItem && !useHackedTransparentItems) {
                                         nextTurnBoard[newX][newY] = isEmpty;
-                                        hasItemUntil[newX][newY] = minDetonateTime - 1;
+                                        hasItemUntil[newX][newY] = minDetonateTime;
                                         struckObstruction = false;
                                         useHackedTransparentItems = true;
                                     }
@@ -876,16 +866,10 @@ class Player {
         public boolean isCellPassable(Position pos, int time) {
             int x = pos.getX();
             int y = pos.getY();
-            return !(hasWall[x][y] || (hasBombUntil[x][y] >= time && hasBombSince[x][y] <= time) ||
-                    hasBoxUntil[x][y] >= time - 1 ||
+            int makingMoveOn = time - 1;
+            return !(hasWall[x][y] || (hasBombUntil[x][y] >= makingMoveOn && hasBombSince[x][y] <= makingMoveOn) ||
+                    hasBoxUntil[x][y] >= makingMoveOn ||
                     (explosions.get(pos) != null && explosions.get(pos).contains(time + 1)));
-        }
-
-        public boolean isCellVacantForBomb(Position pos, int time) {
-            int x = pos.getX();
-            int y = pos.getY();
-            return !(hasWall[x][y] || (hasBombUntil[x][y] >= time && hasBombSince[x][y] <= time)
-                    || hasBoxUntil[x][y] >= time);
         }
 
         public boolean isCellBox(Position pos, int time) {
@@ -911,10 +895,11 @@ class Player {
         }
 
         public int bombermanBombsUsed(int bombermanId, int time) {
+            int makingMoveOn = time - 1;
             int usedOverall = bombsByBomberman[bombermanId];
             for (int i = 0; i < explosionTimesByBomberman.get(bombermanId).size(); i++) {
                 int explosionTime = explosionTimesByBomberman.get(bombermanId).get(i);
-                if (explosionTime < time) {
+                if (explosionTime < makingMoveOn) {
                     usedOverall--;
                 }
             }
