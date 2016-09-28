@@ -867,7 +867,7 @@ class Player {
             int x = pos.getX();
             int y = pos.getY();
             return !(hasWall[x][y] || (hasBombUntil[x][y] >= time && hasBombSince[x][y] <= time) ||
-                    hasBoxUntil[x][y] >= time ||
+                    hasBoxUntil[x][y] >= time - 1 ||
                     (explosions.get(pos) != null && explosions.get(pos).contains(time + 1)));
         }
 

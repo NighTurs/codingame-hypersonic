@@ -50,7 +50,8 @@ public class PlayerTest {
         assertTrue(board.isCellBox(of(5, 3), 1));
         assertFalse(board.isCellBox(of(5, 3), 2));
         assertFalse(board.isCellPassable(of(4, 3), 1));
-        assertTrue(board.isCellPassable(of(4, 3), 2));
+        assertFalse(board.isCellPassable(of(4, 3), 2));
+        assertTrue(board.isCellPassable(of(4, 3), 3));
         assertFalse(board.isCellPassable(of(6, 3), 1));
         assertTrue(board.isCellPassable(of(6, 3), 2));
         assertTrue(board.isCellPassable(of(6, 3), 3));
@@ -244,7 +245,7 @@ public class PlayerTest {
                 new Bomberman(1, of(1, 2), 2, 8, 1, 1),
                 Collections.singletonList(new Bomberman(2, of(1, 1), 5, 8, 1, 1)),
                 gameObjects);
-        assertEquals(new PlaceBombAction(of(1, 1)), planTurn(gameState));
+        assertEquals(new MoveAction(of(1, 1)), planTurn(gameState));
 
         /*
         .P...
