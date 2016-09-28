@@ -72,11 +72,11 @@ public class PlayerTest {
         assertEquals(4, board.bombermanBombsUsed(1, 0));
         assertEquals(4, board.bombermanBombsUsed(1, 1));
         assertEquals(4, board.bombermanBombsUsed(1, 2));
-        assertEquals(4, board.bombermanBombsUsed(1, 3));
+        assertEquals(0, board.bombermanBombsUsed(1, 3));
         assertEquals(0, board.bombermanBombsUsed(1, 4));
         assertEquals(1, board.bombermanBombsUsed(2, 2));
         assertEquals(1, board.bombermanBombsUsed(2, 9));
-        assertEquals(1, board.bombermanBombsUsed(2, 10));
+        assertEquals(0, board.bombermanBombsUsed(2, 10));
         assertEquals(0, board.bombermanBombsUsed(2, 11));
 
         assertTrue(board.isCellPassable(of(1, 6), 2));

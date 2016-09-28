@@ -895,11 +895,10 @@ class Player {
         }
 
         public int bombermanBombsUsed(int bombermanId, int time) {
-            int makingMoveOn = time - 1;
             int usedOverall = bombsByBomberman[bombermanId];
             for (int i = 0; i < explosionTimesByBomberman.get(bombermanId).size(); i++) {
                 int explosionTime = explosionTimesByBomberman.get(bombermanId).get(i);
-                if (explosionTime < makingMoveOn) {
+                if (explosionTime < time) {
                     usedOverall--;
                 }
             }
