@@ -417,16 +417,6 @@ class Player {
                                                 myBombermanId))));
                         if (moveToSurvive != null) {
                             bestScore = curScore;
-                            System.err.println(String.format(
-                                    "%s, sc=%s, expTime=%s, leftB=%s, ordBo=%s, bBo=%s, bPicked=%s, rPicked=%s",
-                                    sp.getPos(),
-                                    bestScore,
-                                    explosionTime,
-                                    gameState.getMyBomberman().getLeftBombs(),
-                                    ordinaryBoxesBlown,
-                                    bombBoxesBlown,
-                                    sp.getBombsPickedUp(),
-                                    sp.getRangePickedUp()));
                             if (sp.getInitiateAction() != null) {
                                 MoveAction action = (MoveAction) sp.getInitiateAction();
                                 bestScoreAction = new MoveAction(action.getPos(),
