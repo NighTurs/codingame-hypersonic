@@ -331,7 +331,7 @@ class Player {
             this.priority = priority;
         }
 
-        private static Action searchForBestBomb(GameState gameState, Position myPosition, int time, Board board) {
+        private static Action searchForBestBomb(GameState gameState, Position myPosition, int time, Board boardInitial) {
             int myBombermanId = gameState.getMyBomberman().getId();
 
             Queue<SearchPosition> queue = new PriorityQueue<>((SearchPosition a, SearchPosition b) -> {
@@ -346,9 +346,43 @@ class Player {
 
             double bestScore = Double.MIN_VALUE;
             Action bestScoreAction = null;
-            Map<Position, Set<Integer>> positionVisitTimes = new HashMap<>();
-            positionVisitTimes.put(myPosition, new HashSet<>());
-            positionVisitTimes.get(myPosition).add(time);
+            List<Map<Position, Set<Integer>>> positionVisitTimes = new ArrayList<>();
+            positionVisitTimes.add(new HashMap<>());
+            positionVisitTimes.get(0).put(myPosition, new HashSet<>());
+            positionVisitTimes.get(0).get(myPosition).add(time);
+
+            Bomberman bomberman = gameState.getMyBomberman();
+            List<Board> boards = new ArrayList<>();
+            boards.add(boardInitial);
+            Board.BombScore initBombScore = null;
+            if (bomberman.getLeftBombs() > 0 &&
+                    boardInitial.isCellPassable(bomberman.getPos(), 1)) {
+                Bomb bomb = new Bomb(1,
+                        bomberman.getBombCountdown(),
+                        bomberman.getBombRange(),
+                        bomberman.getPos(),
+                        bomberman.getId());
+                initBombScore = boardInitial.calcBombScore(gameState, bomb);
+                boards.add(Board.appendTimeline(boardInitial,
+                        Collections.singletonList(bomb)));
+                MoveAction moveToSurvive = SurviveStrategy.findMoveToSurvive(gameState,
+                        bomberman.getPos(),
+                        0,
+                        boards.get(1));
+                if (moveToSurvive != null) {
+                    bestScore = calcScore(bomb.getCountdown(),
+                            gameState.getMyBomberman().getLeftBombs(),
+                            initBombScore.getOrdinaryBoxesBlown(),
+                            initBombScore.getBombBoxesBlown(),
+                            0,
+                            0);
+                    bestScoreAction = new PlaceBombAction(moveToSurvive.getPos());
+                    queue.add(new SearchPosition(null, myPosition, time, 0, 0, 0, true));
+                    positionVisitTimes.add(new HashMap<>());
+                    positionVisitTimes.get(1).put(myPosition, new HashSet<>());
+                    positionVisitTimes.get(1).get(myPosition).add(time);
+                }
+            }
 
             while (!queue.isEmpty()) {
                 SearchPosition sp = queue.poll();
@@ -356,52 +390,31 @@ class Player {
                 int nowY = sp.getPos().getY();
                 int nowTime = sp.getTime();
                 int nextTime = nowTime + 1;
+                Board board = boards.get(sp.stateIndex());
                 int leftBombs = gameState.getMyBomberman().getOverallBombs() -
                         board.bombermanBombsUsed(myBombermanId, nextTime);
                 int itemsPickedUp = sp.getPickedUpItems();
 
-                if (leftBombs > 0) {
+                if (leftBombs > 0 && sp.getTime() > 0) {
+                    Bomb bomb = new Bomb(nextTime,
+                            gameState.getMyBomberman().getBombCountdown(),
+                            gameState.getMyBomberman().getBombRange(),
+                            sp.getPos(),
+                            myBombermanId);
+
                     int explosionTime = nextTime + gameState.getMyBomberman().getBombCountdown();
                     int nextExplosion = board.nextExplosionInCell(sp.getPos(), nowTime);
                     if (nextExplosion != -1) {
                         explosionTime = Math.min(explosionTime, nextExplosion);
                     }
-                    int ordinaryBoxesBlown = 0;
-                    int bombBoxesBlown = 0;
-
-                    for (int i = -1; i <= 1; i++) {
-                        for (int h = -1; h <= 1; h++) {
-                            if (i == 0 ^ h == 0) {
-                                for (int d = 0; d < gameState.getMyBomberman().getBombRange(); d++) {
-                                    int newX = nowX + i * d;
-                                    int newY = nowY + h * d;
-                                    if (!Position.isValid(gameState.getN(), gameState.getM(), newX, newY)) {
-                                        break;
-                                    }
-                                    Position newPos = Position.of(newX, newY);
-                                    if (board.isCellBox(newPos, explosionTime)) {
-                                        Box box = gameState.getBox(newX, newY);
-                                        if (box.getType() == Box.Type.BOMB_ITEM) {
-                                            bombBoxesBlown++;
-                                        } else {
-                                            ordinaryBoxesBlown++;
-                                        }
-                                    }
-                                    if (!board.isCellPassableByExplosion(newPos, explosionTime)) {
-                                        break;
-                                    }
-                                    if (d != 0 && board.isCellHasItem(newPos, explosionTime)) {
-                                        break;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    Board.BombScore score = board.calcBombScore(gameState, bomb);
 
                     double curScore = calcScore(explosionTime,
                             gameState.getMyBomberman().getLeftBombs(),
-                            ordinaryBoxesBlown,
-                            bombBoxesBlown,
+                            (sp.isInitialBomb() ? initBombScore.getOrdinaryBoxesBlown() : 0) +
+                                    score.getOrdinaryBoxesBlown(),
+                            (sp.isInitialBomb() ? initBombScore.getBombBoxesBlown() : 0) +
+                                    score.getBombBoxesBlown(),
                             sp.getBombsPickedUp(),
                             sp.getRangePickedUp());
 
@@ -409,12 +422,7 @@ class Player {
                         MoveAction moveToSurvive = SurviveStrategy.findMoveToSurvive(gameState,
                                 sp.getPos(),
                                 nowTime,
-                                Board.appendTimeline(board,
-                                        Collections.singletonList(new Bomb(nextTime,
-                                                gameState.getMyBomberman().getBombCountdown(),
-                                                gameState.getMyBomberman().getBombRange(),
-                                                sp.getPos(),
-                                                myBombermanId))));
+                                Board.appendTimeline(board, Collections.singletonList(bomb)));
                         if (moveToSurvive != null) {
                             bestScore = curScore;
                             if (sp.getInitiateAction() != null) {
@@ -437,23 +445,27 @@ class Player {
                                 continue;
                             }
                             Position newPos = Position.of(newX, newY);
-                            if (positionVisitTimes.containsKey(newPos) &&
-                                    (positionVisitTimes.get(newPos).contains(nextTime) ||
-                                            positionVisitTimes.get(newPos).size() >= MAX_POSITION_VISIT_TIMES)) {
+                            if (positionVisitTimes.get(sp.stateIndex()).containsKey(newPos) &&
+                                    (positionVisitTimes.get(sp.stateIndex()).get(newPos).contains(nextTime) ||
+                                            positionVisitTimes.get(sp.stateIndex()).get(newPos).size() >=
+                                                    MAX_POSITION_VISIT_TIMES)) {
                                 continue;
                             }
                             if (board.isCellPassable(newPos, nextTime)) {
-                                positionVisitTimes.putIfAbsent(newPos, new HashSet<>());
-                                positionVisitTimes.get(newPos).add(nextTime);
+                                positionVisitTimes.get(sp.stateIndex()).putIfAbsent(newPos, new HashSet<>());
+                                positionVisitTimes.get(sp.stateIndex()).get(newPos).add(nextTime);
                                 Action initiateAction = sp.getInitiateAction() == null ?
-                                        new MoveAction(newPos) :
+                                        (sp.isInitialBomb() ? new PlaceBombAction(newPos) : new MoveAction(newPos)) :
                                         sp.getInitiateAction();
                                 int newItemsPickedUp = itemsPickedUp;
                                 int bombItemsPickedUp = sp.getBombsPickedUp();
                                 int rangeItemsPickedUp = sp.getRangePickedUp();
                                 if (board.isCellHasItem(newPos, nextTime)) {
-                                    int minVisitTime =
-                                            positionVisitTimes.get(newPos).stream().min(Integer::compare).get();
+                                    int minVisitTime = positionVisitTimes.get(sp.stateIndex())
+                                            .get(newPos)
+                                            .stream()
+                                            .min(Integer::compare)
+                                            .get();
                                     if (minVisitTime >= nextTime) {
                                         if (gameState.getItem(newX, newY).getType() == Item.Type.BOMB) {
                                             bombItemsPickedUp++;
@@ -511,6 +523,7 @@ class Player {
             private final int pickedUpItems;
             private final int bombsPickedUp;
             private final int rangePickedUp;
+            private final boolean shouldStartWithBomb;
 
             public SearchPosition(Action initiateAction,
                                   Position pos,
@@ -518,12 +531,31 @@ class Player {
                                   int pickedUpItems,
                                   int bombsPickedUp,
                                   int rangePickedUp) {
+                this(initiateAction, pos, time, pickedUpItems, bombsPickedUp, rangePickedUp, false);
+            }
+
+            public SearchPosition(Action initiateAction,
+                                  Position pos,
+                                  int time,
+                                  int pickedUpItems,
+                                  int bombsPickedUp,
+                                  int rangePickedUp,
+                                  boolean shouldStartWithBomb) {
                 this.initiateAction = initiateAction;
                 this.pos = pos;
                 this.time = time;
                 this.pickedUpItems = pickedUpItems;
                 this.bombsPickedUp = bombsPickedUp;
                 this.rangePickedUp = rangePickedUp;
+                this.shouldStartWithBomb = shouldStartWithBomb;
+            }
+
+            public boolean isInitialBomb() {
+                return shouldStartWithBomb || initiateAction instanceof PlaceBombAction;
+            }
+
+            public int stateIndex() {
+                return shouldStartWithBomb || initiateAction instanceof PlaceBombAction ? 1 : 0;
             }
 
             public Action getInitiateAction() {
@@ -904,6 +936,65 @@ class Player {
             }
             return usedOverall;
         }
+
+        public BombScore calcBombScore(GameState gameState, Bomb bomb) {
+            int explosionTime = bomb.createTime() + bomb.getCountdown();
+            int nextExplosion = nextExplosionInCell(bomb.getPos(), bomb.createTime() - 1);
+            if (nextExplosion != -1) {
+                explosionTime = Math.min(explosionTime, nextExplosion);
+            }
+            int ordinaryBoxesBlown = 0;
+            int bombBoxesBlown = 0;
+
+            for (int i = -1; i <= 1; i++) {
+                for (int h = -1; h <= 1; h++) {
+                    if (i == 0 ^ h == 0) {
+                        for (int d = 0; d < bomb.getRange(); d++) {
+                            int newX = bomb.getPos().getX() + i * d;
+                            int newY = bomb.getPos().getY() + h * d;
+                            if (!Position.isValid(n, m, newX, newY)) {
+                                break;
+                            }
+                            Position newPos = Position.of(newX, newY);
+                            if (isCellBox(newPos, explosionTime)) {
+                                Box box = gameState.getBox(newX, newY);
+                                if (box.getType() == Box.Type.BOMB_ITEM) {
+                                    bombBoxesBlown++;
+                                } else {
+                                    ordinaryBoxesBlown++;
+                                }
+                            }
+                            if (!isCellPassableByExplosion(newPos, explosionTime)) {
+                                break;
+                            }
+                            if (d != 0 && isCellHasItem(newPos, explosionTime)) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return new BombScore(bombBoxesBlown, ordinaryBoxesBlown);
+        }
+
+        public static class BombScore {
+            private final int bombBoxesBlown;
+            private final int ordinaryBoxesBlown;
+
+            public BombScore(int bombBoxesBlown, int ordinaryBoxesBlown) {
+                this.bombBoxesBlown = bombBoxesBlown;
+                this.ordinaryBoxesBlown = ordinaryBoxesBlown;
+            }
+
+            public int getBombBoxesBlown() {
+                return bombBoxesBlown;
+            }
+
+            public int getOrdinaryBoxesBlown() {
+                return ordinaryBoxesBlown;
+            }
+        }
+
     }
 
     static final class Wall implements GameObject {
