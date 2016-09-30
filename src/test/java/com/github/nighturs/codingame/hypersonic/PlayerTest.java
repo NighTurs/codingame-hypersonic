@@ -102,7 +102,7 @@ public class PlayerTest {
          */
         gameObjects = Arrays.asList(new Wall(of(0, 1)), new Wall(of(0, 3)), new Wall(of(2, 2)), new Box(of(0, 2)));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 1, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 2), "BOMB{1,2}"), planTurn(gameState));
+        assertEquals(new MoveAction(of(1, 2)), planTurn(gameState));
 
         /*
         .WCW.
@@ -135,7 +135,7 @@ public class PlayerTest {
                 new Box(of(1, 2)),
                 new Bomb(0, 2, 3, of(0, 0), 1));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 1), "BOMB{1,1}"), planTurn(gameState));
+        assertEquals(new MoveAction(of(1, 1)), planTurn(gameState));
 
          /*
         .BCW.
@@ -153,7 +153,7 @@ public class PlayerTest {
                 new Box(of(1, 2)),
                 new Bomb(0, 2, 2, of(0, 1), 1));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 2, 8, 0, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 0), "BOMB{1,1}"), planTurn(gameState));
+        assertEquals(new MoveAction(of(1, 0)), planTurn(gameState));
 
         /*
         ..CW.
@@ -165,7 +165,7 @@ public class PlayerTest {
                 new Box(of(0, 2)),
                 new Item(Item.Type.BOMB, of(1, 2)));
         gameState = new GameState(n, m, new Bomberman(1, of(1, 1), 3, 8, 1, 1), emptyList(), gameObjects);
-        assertEquals(new MoveAction(of(1, 2), "BOMB{1,2}"), planTurn(gameState));
+        assertEquals(new MoveAction(of(1, 2)), planTurn(gameState));
 
         /*
         CIPIC

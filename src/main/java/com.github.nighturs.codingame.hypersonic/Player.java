@@ -247,6 +247,10 @@ class Player {
         }
 
         private static MoveAction findMoveToSurvive(GameState gameState, Position myPosition, int time, Board board) {
+            if (!board.isCellPassable(myPosition, time)) {
+                return null;
+            }
+
             Queue<FarmBoxesStrategy.SearchPosition> queue = new ArrayDeque<>();
             queue.add(new FarmBoxesStrategy.SearchPosition(null, myPosition, time, 0, 0, 0));
 
@@ -370,7 +374,12 @@ class Player {
                         0,
                         boards.get(1));
                 if (moveToSurvive != null) {
-                    bestScore = calcScore(1 + bomb.getCountdown(),
+                    int explosionTime = 1 + bomb.getCountdown();
+                    int nextExplosion = boardInitial.nextExplosionInCell(bomb.getPos(), 0);
+                    if (nextExplosion != -1) {
+                        explosionTime = Math.min(explosionTime, nextExplosion);
+                    }
+                    bestScore = calcScore(explosionTime,
                             gameState.getMyBomberman().getLeftBombs(),
                             initBombScore.getOrdinaryBoxesBlown(),
                             initBombScore.getBombBoxesBlown(),
@@ -697,6 +706,7 @@ class Player {
     static class Board {
 
         private static final int INF = Integer.MAX_VALUE;
+        private static final int MINUS_INF = Integer.MIN_VALUE;
         private static final int MAX_BOMBERMAN = 4;
         final int n;
         final int m;
@@ -732,11 +742,11 @@ class Player {
             this.m = m;
             this.hasWall = hasWall;
             this.gameObjects = gameObjects;
-            this.hasBoxUntil = fill(new int[n][m], -1);
+            this.hasBoxUntil = fill(new int[n][m], MINUS_INF);
             this.hasBombSince = fill(new int[n][m], INF);
-            this.hasBombUntil = fill(new int[n][m], -1);
+            this.hasBombUntil = fill(new int[n][m], MINUS_INF);
             this.hasItemSince = fill(new int[n][m], INF);
-            this.hasItemUntil = fill(new int[n][m], -1);
+            this.hasItemUntil = fill(new int[n][m], MINUS_INF);
             this.bombsByBomberman = new int[MAX_BOMBERMAN];
             this.explosionTimesByBomberman = new ArrayList<>();
             for (int i = 0; i < MAX_BOMBERMAN; i++) {
@@ -789,7 +799,7 @@ class Player {
                 } else if (o instanceof Item) {
                     curTurnBoard[o.getPos().getX()][o.getPos().getY()] = isItem;
                     hasItemUntil[o.getPos().getX()][o.getPos().getY()] = INF;
-                    hasItemSince[o.getPos().getX()][o.getPos().getY()] = -1;
+                    hasItemSince[o.getPos().getX()][o.getPos().getY()] = MINUS_INF;
                 }
             }
             arrayCopy(curTurnBoard, nextTurnBoard);
@@ -831,7 +841,7 @@ class Player {
 
                                     if (bombsByPosition.get(newPos) != null && !useHackedTransparentItems) {
                                         for (Bomb bomb : bombsByPosition.get(newPos)) {
-                                            if (!isDetonated.contains(bomb)) {
+                                            if (!isDetonated.contains(bomb) && bomb.createTime() <= minDetonateTime) {
                                                 isDetonated.add(bomb);
                                                 toDetonateBombs.add(bomb);
                                                 hasBombUntil[bomb.getPos().getX()][bomb.getPos().getY()] =
