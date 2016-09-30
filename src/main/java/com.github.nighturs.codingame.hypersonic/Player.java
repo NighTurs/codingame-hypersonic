@@ -370,7 +370,7 @@ class Player {
                         0,
                         boards.get(1));
                 if (moveToSurvive != null) {
-                    bestScore = calcScore(bomb.getCountdown(),
+                    bestScore = calcScore(1 + bomb.getCountdown(),
                             gameState.getMyBomberman().getLeftBombs(),
                             initBombScore.getOrdinaryBoxesBlown(),
                             initBombScore.getBombBoxesBlown(),
@@ -426,9 +426,7 @@ class Player {
                         if (moveToSurvive != null) {
                             bestScore = curScore;
                             if (sp.getInitiateAction() != null) {
-                                MoveAction action = (MoveAction) sp.getInitiateAction();
-                                bestScoreAction = new MoveAction(action.getPos(),
-                                        String.format("BOMB{%d,%d}", sp.getPos().getX(), sp.getPos().getY()));
+                                bestScoreAction = sp.getInitiateAction();
                             } else {
                                 bestScoreAction = new PlaceBombAction(moveToSurvive.getPos());
                             }
