@@ -13,6 +13,7 @@ class Player {
         int height = in.nextInt();
         int myId = in.nextInt();
         in.nextLine();
+        GameState gs = null;
 
         while (true) {
             List<GameObject> gameObjects = new ArrayList<>();
@@ -74,7 +75,7 @@ class Player {
 
             in.nextLine();
 
-            GameState gs = new GameState(height, width, myBomberman, enemyBomberman, gameObjects);
+            gs = new GameState(height, width, myBomberman, enemyBomberman, gameObjects, gs);
 
             System.out.println(planTurn(gs).formatLine());
         }
@@ -84,6 +85,7 @@ class Player {
         List<Strategy> strategies = new ArrayList<>();
         strategies.add(FarmBoxesStrategy.createStrategy(gameState));
         strategies.add(SurviveStrategy.createStrategy(gameState));
+        strategies.add(RunAroundIfNoBoxesStrategy.createStrategy(gameState));
         strategies.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
         strategies.add(DontAllowToBeTrappedStrategy.createStrategy(gameState, strategies.get(0).action()));
         strategies.sort((a, b) -> Integer.compare(b.priority(), a.priority()));
@@ -100,12 +102,23 @@ class Player {
         private final Board board;
         private final Box[][] boxes;
         private final Item[][] items;
+        private final boolean areThereAnyBoxes;
+        private final boolean[] register;
 
         public GameState(int n,
                          int m,
                          Bomberman myBomberman,
                          List<Bomberman> enemyBomberman,
                          List<GameObject> gameObjects) {
+            this(n, m, myBomberman, enemyBomberman, gameObjects, null);
+        }
+
+        public GameState(int n,
+                         int m,
+                         Bomberman myBomberman,
+                         List<Bomberman> enemyBomberman,
+                         List<GameObject> gameObjects,
+                         GameState previousState) {
             this.n = n;
             this.m = m;
             this.myBomberman = myBomberman;
@@ -113,8 +126,10 @@ class Player {
             this.board = Board.createBoard(n, m, gameObjects);
             boxes = new Box[n][m];
             items = new Item[n][m];
+            boolean areThereAnyBoxes = false;
             for (GameObject o : gameObjects) {
                 if (o instanceof Box) {
+                    areThereAnyBoxes = true;
                     Box box = (Box) o;
                     boxes[box.getPos().getX()][box.getPos().getY()] = box;
                     if (box.getType() == Box.Type.BOMB_ITEM) {
@@ -126,6 +141,8 @@ class Player {
                     items[o.getPos().getX()][o.getPos().getY()] = (Item) o;
                 }
             }
+            this.areThereAnyBoxes = areThereAnyBoxes;
+            this.register = previousState == null ? new boolean[20] : previousState.getRegister();
         }
 
         public int getN() {
@@ -154,6 +171,92 @@ class Player {
 
         public Item getItem(int x, int y) {
             return items[x][y];
+        }
+
+        public boolean areThereAnyBoxes() {
+            return areThereAnyBoxes;
+        }
+
+        public boolean[] getRegister() {
+            return register;
+        }
+    }
+
+    static class RunAroundIfNoBoxesStrategy implements Strategy {
+
+        private final Action action;
+        private final int priority;
+
+        public static RunAroundIfNoBoxesStrategy createStrategy(GameState gameState) {
+            if (gameState.areThereAnyBoxes()) {
+                return new RunAroundIfNoBoxesStrategy(null, -1000);
+            }
+            Position pos = gameState.getMyBomberman().getPos();
+            int x = pos.getX();
+            int y = pos.getY();
+            int n = gameState.getN();
+            int m = gameState.getM();
+            Position goRight = Position.isValid(n, m, x, y + 1) ? Position.of(x, y + 1) : null;
+            Position goLeft = Position.isValid(n, m, x, y - 1) ? Position.of(x, y - 1) : null;
+            Position goNorth = Position.isValid(n, m, x - 1, y) ? Position.of(x - 1, y) : null;
+            Position goSouth = Position.isValid(n, m, x + 1, y) ? Position.of(x + 1, y) : null;
+
+            if (gameState.getRegister()[0]) {
+                Position z = goLeft;
+                goLeft = goRight;
+                goRight = z;
+                z = goNorth;
+                goNorth = goSouth;
+                goSouth = z;
+            }
+
+            List<Position> goPriorities = null;
+            if (x >= 4 && x <= 7 && y >= 4 && y <= 8) {
+                goPriorities = Arrays.asList(goSouth, goLeft, goRight, goNorth);
+            } else if (x < 4) {
+                if (y < 4) {
+                    goPriorities = Arrays.asList(goRight, goNorth, goSouth, goLeft);
+                } else {
+                    goPriorities = Arrays.asList(goRight, goSouth, goNorth, goLeft);
+                }
+            } else if (y < 4) {
+                goPriorities = Arrays.asList(goNorth, goLeft, goRight, goSouth);
+            } else if (x > 7 ) {
+                goPriorities = Arrays.asList(goLeft, goSouth, goNorth, goRight);
+            } else if (y > 8) {
+                goPriorities = Arrays.asList(goSouth, goRight, goLeft, goNorth);
+            }
+
+            boolean turnAround = false;
+            for (Position p : goPriorities) {
+                if (p == null) {
+                    continue;
+                }
+                if (!gameState.getBoard().isCellPassable(p, 1) && !gameState.getBoard().isCellWall(p) && !turnAround) {
+                    gameState.getRegister()[0] = !gameState.getRegister()[0];
+                    turnAround = true;
+                }
+                if (gameState.getBoard().isCellPassable(p, 1) &&
+                        SurviveStrategy.findMoveToSurvive(gameState, p, 1, gameState.getBoard()) != null) {
+                    return new RunAroundIfNoBoxesStrategy(new MoveAction(p), 50);
+                }
+            }
+            return new RunAroundIfNoBoxesStrategy(new MoveAction(pos), 50);
+        }
+
+        private RunAroundIfNoBoxesStrategy(Action action, int priority) {
+            this.action = action;
+            this.priority = priority;
+        }
+
+        @Override
+        public Action action() {
+            return action;
+        }
+
+        @Override
+        public int priority() {
+            return priority;
         }
     }
 
@@ -319,6 +422,9 @@ class Player {
         private final int priority;
 
         public static FarmBoxesStrategy createStrategy(GameState gameState) {
+            if (!gameState.areThereAnyBoxes()) {
+                return new FarmBoxesStrategy(null, 0);
+            }
             Action action = searchForBestBomb(gameState,
                     gameState.getMyBomberman().getPos(),
                     0,
@@ -932,6 +1038,10 @@ class Player {
                 }
                 return -1;
             }
+        }
+
+        public boolean isCellWall(Position pos) {
+            return hasWall[pos.getX()][pos.getY()];
         }
 
         public int bombermanBombsUsed(int bombermanId, int time) {
