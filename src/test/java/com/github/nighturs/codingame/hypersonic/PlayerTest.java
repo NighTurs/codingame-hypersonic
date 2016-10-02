@@ -116,7 +116,7 @@ public class PlayerTest {
                 new Wall(of(2, 1)),
                 new Wall(of(2, 3)),
                 new Box(of(0, 2)));
-        gameState = new GameState(n, m, new Bomberman(1, of(1, 2), 2, 8, 1, 1), emptyList(), gameObjects);
+        gameState = new GameState(n, m, new Bomberman(1, of(1, 2), 2, 5, 1, 1), emptyList(), gameObjects);
         assertEquals(new PlaceBombAction(of(1, 1)), planTurn(gameState));
 
         /*

@@ -417,7 +417,7 @@ class Player {
 
     static class FarmBoxesStrategy implements Strategy {
 
-        private static final int MAX_POSITION_VISIT_TIMES = 5;
+        private static final int MAX_POSITION_VISIT_TIMES = 10;
         private final Action action;
         private final int priority;
 
@@ -454,8 +454,12 @@ class Player {
             });
             queue.add(new SearchPosition(null, myPosition, time, 0, 0, 0));
 
-            double bestScore = Double.MIN_VALUE;
-            Action bestScoreAction = null;
+            double[] bestScore = new double[2];
+            bestScore[0] = Double.MIN_VALUE;
+            bestScore[1] = Double.MIN_VALUE;
+            double startBombScore = Double.MIN_VALUE;
+            Action[] bestScoreAction = new Action[2];
+            Action startBombAction = null;
             List<Map<Position, Set<Integer>>> positionVisitTimes = new ArrayList<>();
             positionVisitTimes.add(new HashMap<>());
             positionVisitTimes.get(0).put(myPosition, new HashSet<>());
@@ -464,9 +468,9 @@ class Player {
             Bomberman bomberman = gameState.getMyBomberman();
             List<Board> boards = new ArrayList<>();
             boards.add(boardInitial);
-            Board.BombScore initBombScore = null;
             if (bomberman.getLeftBombs() > 0 &&
                     boardInitial.isCellPassable(bomberman.getPos(), 1)) {
+                Board.BombScore initBombScore = null;
                 Bomb bomb = new Bomb(1,
                         bomberman.getBombCountdown(),
                         bomberman.getBombRange(),
@@ -485,13 +489,14 @@ class Player {
                     if (nextExplosion != -1) {
                         explosionTime = Math.min(explosionTime, nextExplosion);
                     }
-                    bestScore = calcScore(explosionTime,
+                    startBombScore = calcScore(explosionTime,
+                            gameState.getMyBomberman().getOverallBombs(),
                             gameState.getMyBomberman().getLeftBombs(),
                             initBombScore.getOrdinaryBoxesBlown(),
                             initBombScore.getBombBoxesBlown(),
                             0,
                             0);
-                    bestScoreAction = new PlaceBombAction(moveToSurvive.getPos());
+                    startBombAction = new PlaceBombAction(moveToSurvive.getPos());
                     queue.add(new SearchPosition(null, myPosition, time, 0, 0, 0, true));
                     positionVisitTimes.add(new HashMap<>());
                     positionVisitTimes.get(1).put(myPosition, new HashSet<>());
@@ -525,25 +530,24 @@ class Player {
                     Board.BombScore score = board.calcBombScore(gameState, bomb);
 
                     double curScore = calcScore(explosionTime,
+                            gameState.getMyBomberman().getOverallBombs(),
                             gameState.getMyBomberman().getLeftBombs(),
-                            (sp.isInitialBomb() ? initBombScore.getOrdinaryBoxesBlown() : 0) +
-                                    score.getOrdinaryBoxesBlown(),
-                            (sp.isInitialBomb() ? initBombScore.getBombBoxesBlown() : 0) +
-                                    score.getBombBoxesBlown(),
+                            score.getOrdinaryBoxesBlown(),
+                            score.getBombBoxesBlown(),
                             sp.getBombsPickedUp(),
                             sp.getRangePickedUp());
 
-                    if (bestScore < curScore) {
+                    if (bestScore[sp.stateIndex()] < curScore) {
                         MoveAction moveToSurvive = SurviveStrategy.findMoveToSurvive(gameState,
                                 sp.getPos(),
                                 nowTime,
                                 Board.appendTimeline(board, Collections.singletonList(bomb)));
                         if (moveToSurvive != null) {
-                            bestScore = curScore;
+                            bestScore[sp.stateIndex()] = curScore;
                             if (sp.getInitiateAction() != null) {
-                                bestScoreAction = sp.getInitiateAction();
+                                bestScoreAction[sp.stateIndex()] = sp.getInitiateAction();
                             } else {
-                                bestScoreAction = new PlaceBombAction(moveToSurvive.getPos());
+                                bestScoreAction[sp.stateIndex()] = new PlaceBombAction(moveToSurvive.getPos());
                             }
                         }
                     }
@@ -600,10 +604,21 @@ class Player {
                 }
             }
 
-            return bestScoreAction;
+            if (startBombScore >= bestScore[0] && startBombScore >= bestScore[1]) {
+                if (bestScoreAction[1] == null) {
+                    return startBombAction;
+                } else {
+                    return bestScoreAction[1];
+                }
+            } else if (bestScore[0] >= bestScore[1]) {
+                return bestScoreAction[0];
+            } else {
+                return bestScoreAction[1];
+            }
         }
 
         private static double calcScore(int time,
+                                        int overallBombs,
                                         int initialLeftBombs,
                                         int ordinaryBoxes,
                                         int bombBoxes,
@@ -612,9 +627,15 @@ class Player {
             double score = 1000 - time;
             score += ordinaryBoxes + bombBoxes > 0 ? 1000 : 0;
             score += (initialLeftBombs < 2) ? ordinaryBoxes * 1.5 : ordinaryBoxes;
-            score += (initialLeftBombs < 2) ? bombBoxes * 2 : bombBoxes * 1.5;
-            score += bombsPickedUp * 1.5;
-            score += rangePickedUp * 0.5;
+            if (overallBombs > 2) {
+                score += (initialLeftBombs < 2) ? bombBoxes * 2 : bombBoxes * 1.5;
+            } else {
+                score += (initialLeftBombs < 2) ? bombBoxes * 1.5 : bombBoxes;
+            }
+            if (overallBombs <= 3) {
+                score += overallBombs > 2 ? bombsPickedUp * 0.5 : bombsPickedUp * 1.5;
+                score += rangePickedUp * 0.5;
+            }
             return score;
         }
 
@@ -912,20 +933,23 @@ class Player {
             Set<Bomb> isDetonated = new HashSet<>();
             while (isDetonated.size() < bombs.size()) {
                 int minDetonateTime = Integer.MAX_VALUE;
-                int nextBombToDetonate = 0;
                 for (int i = 0; i < bombs.size(); i++) {
                     if (!isDetonated.contains(bombs.get(i)) &&
                             bombs.get(i).createTime() + bombs.get(i).getCountdown() < minDetonateTime) {
                         minDetonateTime = bombs.get(i).createTime() + bombs.get(i).getCountdown();
-                        nextBombToDetonate = i;
                     }
                 }
-                Bomb initiatorBomb = bombs.get(nextBombToDetonate);
-                isDetonated.add(initiatorBomb);
-                hasBombUntil[initiatorBomb.getPos().getX()][initiatorBomb.getPos().getY()] = minDetonateTime;
-                explosionTimesByBomberman.get(initiatorBomb.getOwnerId()).add(minDetonateTime);
                 Queue<Bomb> toDetonateBombs = new ArrayDeque<>();
-                toDetonateBombs.add(initiatorBomb);
+                for (int i = 0; i < bombs.size(); i++) {
+                    if (!isDetonated.contains(bombs.get(i)) &&
+                            bombs.get(i).createTime() + bombs.get(i).getCountdown() == minDetonateTime) {
+                        Bomb initiatorBomb = bombs.get(i);
+                        isDetonated.add(initiatorBomb);
+                        hasBombUntil[initiatorBomb.getPos().getX()][initiatorBomb.getPos().getY()] = minDetonateTime;
+                        explosionTimesByBomberman.get(initiatorBomb.getOwnerId()).add(minDetonateTime);
+                        toDetonateBombs.add(initiatorBomb);
+                    }
+                }
                 Set<Position> exploadedCells = new HashSet<>();
                 while (!toDetonateBombs.isEmpty()) {
                     Bomb curBomb = toDetonateBombs.poll();
